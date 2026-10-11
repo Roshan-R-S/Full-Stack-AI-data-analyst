@@ -1,0 +1,143 @@
+import { useEffect, useState } from "react";
+
+import DatasetsPage from "./pages/DatasetsPage";
+import AnalystPage from "./pages/AnalystPage";
+import ChatPage from "./pages/ChatPage";
+import DashboardPage from "./pages/DashboardPage";
+
+type Theme = "dark" | "light";
+type View = "datasets" | "analysis" | "ai" | "dashboard";
+type ApiStatus = "checking" | "online" | "offline";
+
+function systemTheme(): Theme {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+export default function App() {
+  const [theme, setTheme] = useState<Theme>(systemTheme);
+  const [view, setView] = useState<View>("datasets");
+  const [apiStatus, setApiStatus] =
+    useState<ApiStatus>("checking");
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch("/api/v1/health", { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("API unavailable");
+        setApiStatus("online");
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
+        setApiStatus("offline");
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  const pages: Record<View, {
+    number: string;
+    title: string;
+    description: string;
+  }> = {
+    datasets: {
+      number: "MODULE 01 / DATASET WORKSPACE",
+      title: "YOUR DATA.",
+      description:
+        "Import a dataset. Inspect every column. Understand its structure.",
+    },
+    analysis: {
+      number: "MODULE 02 / ANALYSIS ENGINE",
+      title: "FIND PATTERNS.",
+      description:
+        "Filter, group and aggregate with verified Pandas calculations.",
+    },
+    dashboard: {
+      number: "MODULE 04 / DATA INTELLIGENCE",
+      title: "DATA OVERVIEW.",
+      description:
+        "Explore verified metrics, distributions and comparisons across your dataset.",
+    },
+    ai: {
+      number: "MODULE 03 / AI ANALYST",
+      title: "ASK ANYTHING.",
+      description:
+        "Ask natural-language analytical questions and inspect verified results.",
+    },
+  };
+
+  const page = pages[view];
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="signal-dot" />
+          DATA / ANALYST
+        </div>
+
+        <div className="topbar-actions">
+          <span className={`api-status ${apiStatus}`}>
+            [{apiStatus.toUpperCase()}]
+          </span>
+
+          <button
+            className="theme-button"
+            type="button"
+            onClick={() =>
+              setTheme(theme === "dark" ? "light" : "dark")
+            }
+            aria-label="Toggle color theme"
+          >
+            [ {theme === "dark" ? "LIGHT" : "DARK"} ]
+          </button>
+        </div>
+      </header>
+
+      <nav className="app-navigation" aria-label="Main navigation">
+        {([
+          ["datasets", "01 / DATASETS"],
+          ["analysis", "02 / ANALYSIS"],
+          ["ai", "03 / AI CHAT"],
+          ["dashboard", "04 / DASHBOARD"],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={view === id ? "active" : ""}
+            aria-current={view === id ? "page" : undefined}
+            onClick={() => setView(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      <main>
+        <section className="workspace-hero">
+          <p className="eyebrow">{page.number}</p>
+          <h1>{page.title}</h1>
+          <p>{page.description}</p>
+        </section>
+
+        {view === "datasets" && <DatasetsPage />}
+        {view === "analysis" && <AnalystPage />}
+        {view === "ai" && <ChatPage />}
+        {view === "dashboard" && <DashboardPage />}
+      </main>
+
+      <footer className="footer">
+        <span>AI DATA ANALYST / PHASE 05</span>
+        <span>BUILT FOR CLARITY.</span>
+      </footer>
+    </div>
+  );
+}

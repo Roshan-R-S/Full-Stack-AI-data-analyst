@@ -1,0 +1,544 @@
+import { useEffect, useState } from "react";
+import VerifiedChart from "../components/charts/LazyVerifiedChart";
+import type { FormEvent } from "react";
+
+import {
+  getDatasetProfile,
+  listDatasets,
+} from "../services/datasetApi";
+
+import { runAnalysis } from "../services/analysisApi";
+
+import type {
+  Dataset,
+  DatasetProfile,
+} from "../types/dataset";
+
+import type {
+  Aggregation,
+  FilterOperator,
+  AnalysisRequest,
+  AnalysisResult,
+} from "../types/analysis";
+
+const aggregations: Aggregation[] = [
+  "sum", "mean", "min", "max", "count", "nunique",
+];
+
+function isNumeric(dtype: string) {
+  return /^(?:u?int|float|decimal)/i.test(dtype);
+}
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+
+  if (typeof value === "number") {
+    return new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  return String(value);
+}
+
+export default function AnalystPage() {
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [datasetId, setDatasetId] = useState("");
+  const [profile, setProfile] = useState<DatasetProfile | null>(null);
+
+  const [metricColumn, setMetricColumn] = useState("");
+  const [aggregation, setAggregation] =
+    useState<Aggregation>("mean");
+
+  const [groupBy, setGroupBy] = useState("");
+  const [filterColumn, setFilterColumn] = useState("");
+  const [filterOperator, setFilterOperator] =
+    useState<FilterOperator>("eq");
+  const [filterValue, setFilterValue] = useState("");
+
+  const [sortDirection, setSortDirection] =
+    useState<"asc" | "desc">("desc");
+  const [limit, setLimit] = useState(50);
+
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [lastPlan, setLastPlan] = useState<AnalysisRequest | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("[READY]");
+
+  useEffect(() => {
+    let active = true;
+
+    listDatasets()
+      .then((items) => {
+        if (!active) return;
+        setDatasets(items);
+        setDatasetId(items[0]?.id ?? "");
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to list datasets",
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!datasetId) {
+      setProfile(null);
+      setResult(null);
+      return;
+    }
+
+    let active = true;
+
+    setLoading(true);
+    setProfile(null);
+    setResult(null);
+    setError("");
+    setStatus("[LOADING DATASET...]");
+
+    getDatasetProfile(datasetId)
+      .then((data) => {
+        if (!active) return;
+
+        const numeric = data.columns.filter((col) =>
+          isNumeric(col.dtype),
+        );
+
+        setProfile(data);
+        setMetricColumn(
+          numeric[0]?.name ?? data.columns[0]?.name ?? "",
+        );
+        setAggregation(numeric.length > 0 ? "mean" : "count");
+
+        setGroupBy("");
+        setFilterColumn("");
+        setFilterOperator("eq");
+        setFilterValue("");
+        setStatus("[DATASET READY]");
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load dataset",
+          );
+          setStatus("[ERROR]");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [datasetId]);
+
+  const columns = profile?.columns ?? [];
+  const numericColumns = columns.filter((column) =>
+    isNumeric(column.dtype),
+  );
+
+  const eligibleColumns =
+    aggregation === "count" || aggregation === "nunique"
+      ? columns
+      : numericColumns;
+
+  const filterIsNumeric = columns.some(
+    (column) =>
+      column.name === filterColumn && isNumeric(column.dtype),
+  );
+
+  const filterOperators: FilterOperator[] = filterIsNumeric
+    ? ["eq", "ne", "gt", "gte", "lt", "lte", "in"]
+    : ["eq", "ne", "in", "contains"];
+
+  function onAggregationChange(next: Aggregation) {
+    setAggregation(next);
+
+    const eligible =
+      next === "count" || next === "nunique"
+        ? columns
+        : numericColumns;
+
+    if (!eligible.some((column) => column.name === metricColumn)) {
+      setMetricColumn(eligible[0]?.name ?? "");
+    }
+  }
+
+  function buildFilter(): AnalysisRequest["filters"] {
+    if (!filterColumn) return [];
+
+    const raw = filterValue.trim();
+
+    if (!raw) {
+      throw new Error("Enter a filter value.");
+    }
+
+    if (filterOperator === "in") {
+      const items = raw
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      if (items.length < 1 || items.length > 20) {
+        throw new Error("Provide between 1 and 20 filter values.");
+      }
+
+      const values = filterIsNumeric
+        ? items.map(Number)
+        : items;
+
+      if (
+        filterIsNumeric &&
+        (values as number[]).some((value) => !Number.isFinite(value))
+      ) {
+        throw new Error("Filter values must be numeric.");
+      }
+
+      return [{
+        column: filterColumn,
+        operator: "in",
+        value: values,
+      }];
+    }
+
+    let value: string | number = raw;
+
+    if (filterIsNumeric) {
+      value = Number(raw);
+
+      if (!Number.isFinite(value)) {
+        throw new Error("Filter value must be numeric.");
+      }
+    }
+
+    return [{
+      column: filterColumn,
+      operator: filterOperator,
+      value,
+    }];
+  }
+
+  async function handleAnalyze(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!datasetId || !metricColumn || !profile) return;
+
+    setRunning(true);
+    setResult(null);
+    setError("");
+    setStatus("[ANALYZING...]");
+
+    try {
+      const plan: AnalysisRequest = {
+        dataset_id: datasetId,
+        group_by: groupBy ? [groupBy] : [],
+        filters: buildFilter(),
+        metrics: [{
+          column: metricColumn,
+          aggregation,
+          alias: "result",
+        }],
+        sort: {
+          column: "result",
+          direction: sortDirection,
+        },
+        limit,
+      };
+
+      const response = await runAnalysis(plan);
+
+      setResult(response);
+      setLastPlan(plan);
+      setStatus("[ANALYSIS COMPLETE]");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Analysis failed",
+      );
+      setStatus("[ERROR]");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="analysis-workspace">
+      <form className="analysis-form" onSubmit={handleAnalyze}>
+        <div className="section-heading">
+          <span>ANALYSIS / CONFIGURATION</span>
+          <span>DETERMINISTIC ENGINE</span>
+        </div>
+
+        <div className="analysis-form-grid">
+          <label className="analysis-field">
+            <span>01 / DATASET</span>
+            <select
+              value={datasetId}
+              onChange={(event) => setDatasetId(event.target.value)}
+            >
+              {datasets.length === 0 && (
+                <option value="">NO DATASETS</option>
+              )}
+              {datasets.map((dataset) => (
+                <option key={dataset.id} value={dataset.id}>
+                  {dataset.filename}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="analysis-field">
+            <span>02 / OPERATION</span>
+            <select
+              value={aggregation}
+              onChange={(event) =>
+                onAggregationChange(event.target.value as Aggregation)
+              }
+              disabled={!profile || loading}
+            >
+              {aggregations.map((operation) => (
+                <option key={operation} value={operation}>
+                  {operation.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="analysis-field">
+            <span>03 / METRIC COLUMN</span>
+            <select
+              value={metricColumn}
+              onChange={(event) =>
+                setMetricColumn(event.target.value)
+              }
+              disabled={!profile || loading}
+            >
+              {eligibleColumns.map((column) => (
+                <option key={column.name} value={column.name}>
+                  {column.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="analysis-field">
+            <span>04 / GROUP BY</span>
+            <select
+              value={groupBy}
+              onChange={(event) => setGroupBy(event.target.value)}
+              disabled={!profile || loading}
+            >
+              <option value="">NO GROUPING</option>
+              {columns.map((column) => (
+                <option key={column.name} value={column.name}>
+                  {column.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="analysis-field">
+            <span>05 / FILTER COLUMN</span>
+            <select
+              value={filterColumn}
+              onChange={(event) => {
+                setFilterColumn(event.target.value);
+                setFilterOperator("eq");
+                setFilterValue("");
+              }}
+              disabled={!profile || loading}
+            >
+              <option value="">NO FILTER</option>
+              {columns.map((column) => (
+                <option key={column.name} value={column.name}>
+                  {column.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="analysis-field">
+            <span>06 / FILTER OPERATOR</span>
+            <select
+              value={filterOperator}
+              onChange={(event) =>
+                setFilterOperator(
+                  event.target.value as FilterOperator,
+                )
+              }
+              disabled={!filterColumn || loading}
+            >
+              {filterOperators.map((operator) => (
+                <option key={operator} value={operator}>
+                  {operator.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="analysis-field">
+            <span>07 / FILTER VALUE</span>
+            <input
+              type="text"
+              placeholder={
+                filterOperator === "in"
+                  ? "VALUE1, VALUE2"
+                  : "ENTER VALUE"
+              }
+              value={filterValue}
+              onChange={(event) =>
+                setFilterValue(event.target.value)
+              }
+              disabled={!filterColumn || loading}
+            />
+          </label>
+
+          <label className="analysis-field">
+            <span>08 / SORT</span>
+            <select
+              value={sortDirection}
+              onChange={(event) =>
+                setSortDirection(
+                  event.target.value as "asc" | "desc",
+                )
+              }
+            >
+              <option value="desc">DESCENDING</option>
+              <option value="asc">ASCENDING</option>
+            </select>
+          </label>
+
+          <label className="analysis-field">
+            <span>09 / RESULT LIMIT</span>
+            <select
+              value={limit}
+              onChange={(event) =>
+                setLimit(Number(event.target.value))
+              }
+            >
+              {[10, 25, 50, 100].map((value) => (
+                <option key={value} value={value}>
+                  {value} ROWS
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="analysis-actions">
+          <button
+            type="submit"
+            className="nd-btn analysis-run"
+            disabled={
+              loading || running || !profile || !metricColumn
+            }
+          >
+            {running ? "[ PROCESSING... ]" : "[ RUN ANALYSIS ]"}
+          </button>
+
+          <span className="analysis-status" role="status">
+            {status}
+          </span>
+        </div>
+
+        {error && (
+          <p className="inline-error" role="alert">
+            [ERROR] {error}
+          </p>
+        )}
+      </form>
+
+      <section className="analysis-output">
+        <div className="section-heading">
+          <span>ANALYSIS / OUTPUT</span>
+          <span>{result ? "COMPUTED BY PANDAS" : "AWAITING QUERY"}</span>
+        </div>
+
+        {!result ? (
+          <div className="analysis-empty">
+            <p className="analysis-empty-number">[ 00 ]</p>
+            <h2>NO RESULTS YET.</h2>
+            <p>
+              Configure your analytical operation and run the query.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="analysis-metrics">
+              <div>
+                <span>SOURCE RECORDS</span>
+                <strong>{formatValue(result.source_rows)}</strong>
+              </div>
+              <div>
+                <span>MATCHED RECORDS</span>
+                <strong>{formatValue(result.matched_rows)}</strong>
+              </div>
+              <div>
+                <span>RESULT GROUPS</span>
+                <strong>{formatValue(result.result_count)}</strong>
+              </div>
+            </div>
+
+            <VerifiedChart
+              result={result}
+              groupBy={lastPlan?.group_by}
+              aggregation={lastPlan?.metrics[0]?.aggregation}
+            />
+
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    {result.columns.map((column) => (
+                      <th key={column} scope="col">
+                        {column === "result"
+                          ? `${aggregation.toUpperCase()} RESULT`
+                          : column}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {result.rows.map((row, index) => (
+                    <tr key={index}>
+                      {result.columns.map((column) => (
+                        <td
+                          key={column}
+                          className={
+                            typeof row[column] === "number"
+                              ? "numeric-cell"
+                              : undefined
+                          }
+                        >
+                          {formatValue(row[column])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="analysis-footnote">
+              [RETURNED {result.returned_rows} / {result.result_count}]
+              {result.truncated && " — RESULT LIMIT APPLIED"}
+            </p>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
