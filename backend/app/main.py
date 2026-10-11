@@ -7,6 +7,7 @@ from app.db.session import Base, engine
 from app.models.dataset import Dataset  # noqa: F401
 from app.models.conversation import Conversation  # noqa: F401
 from app.models.message import Message  # noqa: F401
+from app.models.saved_analysis import SavedAnalysis  # noqa: F401
 
 
 @asynccontextmanager

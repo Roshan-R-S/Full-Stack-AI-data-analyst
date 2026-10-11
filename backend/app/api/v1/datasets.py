@@ -24,6 +24,7 @@ from app.core.config import (
 from app.db.session import get_db
 from app.models.dataset import Dataset
 from app.models.conversation import Conversation
+from app.models.saved_analysis import SavedAnalysis
 from app.services.profiling_service import profile_dataframe
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -210,6 +211,15 @@ def delete_dataset(
 
     for conversation in conversations:
         db.delete(conversation)
+
+    saved_analyses = db.scalars(
+        select(SavedAnalysis).where(
+            SavedAnalysis.dataset_id == dataset_id
+        )
+    ).all()
+
+    for item in saved_analyses:
+        db.delete(item)
 
     db.delete(dataset)
     db.commit()

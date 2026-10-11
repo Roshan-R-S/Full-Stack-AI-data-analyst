@@ -1597,3 +1597,105 @@ button:focus-visible {
     max-height: 220px;
   }
 }
+/* PHASE 6.2 SAVED ANALYSES */
+
+.saved-analysis-section {
+  margin: 42px 0 64px;
+  padding: 24px;
+  border: 1px solid var(--border-visible);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.saved-analysis-hint,
+.saved-analysis-empty {
+  margin: 0 0 24px;
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  line-height: 1.8;
+  letter-spacing: .03em;
+  color: var(--text-secondary);
+}
+
+.saved-analysis-empty {
+  padding: 24px 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.saved-analysis-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+
+.saved-analysis-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 8px;
+}
+
+.saved-analysis-info strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-display);
+}
+
+.saved-analysis-info span {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.saved-analysis-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.saved-analysis-buttons button {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-visible);
+  border-radius: 6px;
+  background: transparent;
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  color: var(--text-primary);
+}
+
+.saved-analysis-buttons button:hover {
+  border-color: var(--text-display);
+}
+
+.saved-analysis-buttons .saved-analysis-delete:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.saved-analysis-buttons button:disabled,
+.analysis-actions .nd-outline:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 750px) {
+  .saved-analysis-section {
+    padding: 18px;
+  }
+
+  .saved-analysis-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .saved-analysis-buttons {
+    width: 100%;
+  }
+}

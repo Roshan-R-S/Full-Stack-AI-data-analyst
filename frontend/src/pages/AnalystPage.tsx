@@ -8,6 +8,17 @@ import {
 } from "../services/datasetApi";
 
 import { runAnalysis } from "../services/analysisApi";
+import {
+  listSavedAnalyses,
+  getSavedAnalysis,
+  createSavedAnalysis,
+  renameSavedAnalysis,
+  rerunSavedAnalysis,
+  deleteSavedAnalysis,
+} from "../services/savedAnalysisApi";
+import type {
+  SavedAnalysisSummary,
+} from "../types/savedAnalysis";
 
 import type {
   Dataset,
@@ -66,6 +77,10 @@ export default function AnalystPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("[READY]");
+  const [savedItems, setSavedItems] =
+    useState<SavedAnalysisSummary[]>([]);
+  const [savedBusy, setSavedBusy] = useState(false);
+  const [savedError, setSavedError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -103,7 +118,9 @@ export default function AnalystPage() {
     setLoading(true);
     setProfile(null);
     setResult(null);
+    setLastPlan(null);
     setError("");
+    setSavedError("");
     setStatus("[LOADING DATASET...]");
 
     getDatasetProfile(datasetId)
@@ -143,6 +160,29 @@ export default function AnalystPage() {
     return () => {
       active = false;
     };
+  }, [datasetId]);
+
+  useEffect(() => {
+    let active = true;
+
+    setSavedItems([]);
+    setSavedError("");
+
+    if (!datasetId) return;
+
+    listSavedAnalyses(datasetId)
+      .then((items) => {
+        if (active) setSavedItems(items);
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setSavedError(
+            err instanceof Error ? err.message : "Unable to load saved analyses",
+          );
+        }
+      });
+
+    return () => { active = false; };
   }, [datasetId]);
 
   const columns = profile?.columns ?? [];
@@ -273,6 +313,224 @@ export default function AnalystPage() {
     }
   }
 
+  async function refreshSaved() {
+    const items = await listSavedAnalyses(datasetId);
+    setSavedItems(items);
+  }
+
+  async function saveLastRun() {
+    if (
+      !lastPlan ||
+      !result ||
+      running ||
+      savedBusy ||
+      lastPlan.dataset_id !== datasetId
+    ) return;
+
+    const metric = lastPlan.metrics[0];
+    const suggested = [
+      metric.aggregation.toUpperCase(),
+      metric.column,
+      lastPlan.group_by.length
+        ? `BY ${lastPlan.group_by.join(", ")}`
+        : "",
+    ].filter(Boolean).join(" ");
+
+    const input = window.prompt(
+      "Save verified analysis as:",
+      suggested,
+    );
+
+    if (input === null) return;
+
+    const name = input.trim();
+
+    if (!name || name.length > 120) {
+      setSavedError("Name must contain 1 to 120 characters.");
+      return;
+    }
+
+    setSavedBusy(true);
+    setSavedError("");
+
+    try {
+      await createSavedAnalysis(name, lastPlan);
+      await refreshSaved();
+      setStatus("[ANALYSIS SAVED]");
+    } catch (err) {
+      setSavedError(
+        err instanceof Error ? err.message : "Unable to save analysis",
+      );
+    } finally {
+      setSavedBusy(false);
+    }
+  }
+
+  function restoreEditor(plan: AnalysisRequest) {
+    if (
+      plan.metrics.length !== 1 ||
+      plan.group_by.length > 1 ||
+      plan.filters.length > 1 ||
+      (plan.sort && plan.sort.column !== plan.metrics[0].alias)
+    ) {
+      throw new Error(
+        "This saved plan exceeds the current editor's capabilities. " +
+        "Use RERUN to execute its complete configuration.",
+      );
+    }
+
+    const filter = plan.filters[0];
+
+    if (filter) {
+      const values = Array.isArray(filter.value)
+        ? filter.value
+        : [filter.value];
+
+      if (values.some((value) => typeof value === "boolean")) {
+        throw new Error(
+          "Boolean filters cannot be edited here. Use RERUN instead.",
+        );
+      }
+    }
+
+    const metric = plan.metrics[0];
+
+    setAggregation(metric.aggregation);
+    setMetricColumn(metric.column);
+    setGroupBy(plan.group_by[0] ?? "");
+
+    setFilterColumn(filter?.column ?? "");
+    setFilterOperator(filter?.operator ?? "eq");
+
+    setFilterValue(
+      filter
+        ? Array.isArray(filter.value)
+          ? filter.value.join(", ")
+          : String(filter.value)
+        : "",
+    );
+
+    setSortDirection(plan.sort?.direction ?? "desc");
+    setLimit(plan.limit);
+    setResult(null);
+    setLastPlan(null);
+    setStatus("[SAVED CONFIGURATION LOADED]");
+  }
+
+  async function loadSaved(id: string) {
+    if (loading || running || savedBusy || !profile) return;
+
+    setSavedBusy(true);
+    setSavedError("");
+
+    try {
+      const saved = await getSavedAnalysis(id);
+
+      if (saved.dataset_id !== datasetId) {
+        throw new Error("Saved analysis belongs to another dataset.");
+      }
+
+      restoreEditor(saved.plan);
+    } catch (err) {
+      setSavedError(
+        err instanceof Error ? err.message : "Unable to load analysis",
+      );
+    } finally {
+      setSavedBusy(false);
+    }
+  }
+
+  async function runSaved(id: string) {
+    if (loading || running || savedBusy || !profile) return;
+
+    setRunning(true);
+    setResult(null);
+    setSavedError("");
+    setError("");
+    setStatus("[RUNNING SAVED ANALYSIS...]");
+
+    try {
+      const response = await rerunSavedAnalysis(id);
+
+      if (response.plan.dataset_id !== datasetId) {
+        throw new Error("Saved result belongs to another dataset.");
+      }
+
+      setLastPlan(response.plan);
+      setResult(response.analysis);
+      setStatus("[SAVED ANALYSIS COMPLETE]");
+    } catch (err) {
+      setSavedError(
+        err instanceof Error ? err.message : "Unable to rerun analysis",
+      );
+      setStatus("[ERROR]");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function renameSaved(id: string) {
+    if (loading || running || savedBusy) return;
+
+    const current = savedItems.find((item) => item.id === id);
+    if (!current) return;
+
+    const entered = window.prompt(
+      "Rename saved analysis:",
+      current.name,
+    );
+
+    if (entered === null) return;
+
+    const name = entered.trim();
+
+    if (!name || name.length > 120) {
+      setSavedError("Name must contain 1 to 120 characters.");
+      return;
+    }
+
+    setSavedBusy(true);
+    setSavedError("");
+
+    try {
+      await renameSavedAnalysis(id, name);
+      await refreshSaved();
+    } catch (err) {
+      setSavedError(
+        err instanceof Error ? err.message : "Unable to rename analysis",
+      );
+    } finally {
+      setSavedBusy(false);
+    }
+  }
+
+  async function removeSaved(id: string) {
+    if (loading || running || savedBusy) return;
+
+    const current = savedItems.find((item) => item.id === id);
+    if (!current) return;
+
+    if (!window.confirm(
+      `Delete saved analysis "${current.name}"?`,
+    )) return;
+
+    setSavedBusy(true);
+    setSavedError("");
+
+    try {
+      await deleteSavedAnalysis(id);
+      setSavedItems((items) =>
+        items.filter((item) => item.id !== id),
+      );
+    } catch (err) {
+      setSavedError(
+        err instanceof Error ? err.message : "Unable to delete analysis",
+      );
+    } finally {
+      setSavedBusy(false);
+    }
+  }
+
   return (
     <div className="analysis-workspace">
       <form className="analysis-form" onSubmit={handleAnalyze}>
@@ -287,6 +545,7 @@ export default function AnalystPage() {
             <select
               value={datasetId}
               onChange={(event) => setDatasetId(event.target.value)}
+              disabled={loading || running || savedBusy}
             >
               {datasets.length === 0 && (
                 <option value="">NO DATASETS</option>
@@ -428,7 +687,9 @@ export default function AnalystPage() {
                 setLimit(Number(event.target.value))
               }
             >
-              {[10, 25, 50, 100].map((value) => (
+              {[...new Set([10, 25, 50, 100, limit])]
+                .sort((a, b) => a - b)
+                .map((value) => (
                 <option key={value} value={value}>
                   {value} ROWS
                 </option>
@@ -448,6 +709,22 @@ export default function AnalystPage() {
             {running ? "[ PROCESSING... ]" : "[ RUN ANALYSIS ]"}
           </button>
 
+          <button
+            type="button"
+            className="nd-outline"
+            onClick={() => void saveLastRun()}
+            disabled={
+              !result ||
+              !lastPlan ||
+              loading ||
+              running ||
+              savedBusy ||
+              lastPlan.dataset_id !== datasetId
+            }
+          >
+            [ SAVE LAST RUN ]
+          </button>
+
           <span className="analysis-status" role="status">
             {status}
           </span>
@@ -459,6 +736,85 @@ export default function AnalystPage() {
           </p>
         )}
       </form>
+
+      <section
+        className="saved-analysis-section"
+        aria-label="Saved analyses"
+      >
+        <div className="section-heading">
+          <span>ANALYSIS / SAVED CONFIGURATIONS</span>
+          <span>{savedItems.length} SAVED</span>
+        </div>
+
+        <p className="saved-analysis-hint">
+          SAVE LAST RUN stores the last successfully verified plan.
+          LOAD opens compatible plans in the editor.
+          RERUN executes the entire saved plan using Pandas.
+        </p>
+
+        {savedError && (
+          <p className="inline-error" role="alert">
+            [ERROR] {savedError}
+          </p>
+        )}
+
+        {savedItems.length === 0 ? (
+          <p className="saved-analysis-empty">
+            [NO SAVED ANALYSES FOR THIS DATASET]
+          </p>
+        ) : (
+          <div className="saved-analysis-list">
+            {savedItems.map((item) => (
+              <div
+                className="saved-analysis-item"
+                key={item.id}
+              >
+                <div className="saved-analysis-info">
+                  <strong title={item.name}>
+                    {item.name}
+                  </strong>
+                  <span>
+                    UPDATED{" "}
+                    {new Date(item.updated_at).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="saved-analysis-buttons">
+                  <button
+                    type="button"
+                    onClick={() => void loadSaved(item.id)}
+                    disabled={loading || running || savedBusy}
+                  >
+                    LOAD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void runSaved(item.id)}
+                    disabled={loading || running || savedBusy}
+                  >
+                    RERUN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void renameSaved(item.id)}
+                    disabled={loading || running || savedBusy}
+                  >
+                    REN
+                  </button>
+                  <button
+                    type="button"
+                    className="saved-analysis-delete"
+                    onClick={() => void removeSaved(item.id)}
+                    disabled={loading || running || savedBusy}
+                  >
+                    DEL
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="analysis-output">
         <div className="section-heading">
@@ -503,8 +859,8 @@ export default function AnalystPage() {
                   <tr>
                     {result.columns.map((column) => (
                       <th key={column} scope="col">
-                        {column === "result"
-                          ? `${aggregation.toUpperCase()} RESULT`
+                        {column === (lastPlan?.metrics[0]?.alias ?? "result")
+                          ? `${(lastPlan?.metrics[0]?.aggregation ?? aggregation).toUpperCase()} RESULT`
                           : column}
                       </th>
                     ))}
