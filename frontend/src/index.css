@@ -1699,3 +1699,69 @@ button:focus-visible {
     width: 100%;
   }
 }
+/* PHASE 7 DATASET PANEL SCROLLING */
+
+/* Scrollable preview table */
+.dataset-workspace .table-scroll {
+  max-height: min(58vh, 560px);
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* Keep preview headers visible when scrolling */
+.dataset-workspace .table-scroll .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border-visible);
+}
+
+/* Independently scrollable schema inspector */
+.dataset-workspace .column-list {
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+  padding-right: 8px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* Theme-aware scrollbar colors */
+.dataset-workspace .table-scroll,
+.dataset-workspace .column-list {
+  scrollbar-width: auto;
+  scrollbar-color: var(--text-disabled) var(--surface);
+}
+
+/* Chromium / Edge scrollbar design */
+.dataset-workspace .table-scroll::-webkit-scrollbar,
+.dataset-workspace .column-list::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.dataset-workspace .table-scroll::-webkit-scrollbar-track,
+.dataset-workspace .column-list::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+.dataset-workspace .table-scroll::-webkit-scrollbar-thumb,
+.dataset-workspace .column-list::-webkit-scrollbar-thumb {
+  background: var(--border-visible);
+  border-radius: 6px;
+  border: 2px solid var(--surface);
+}
+
+.dataset-workspace .table-scroll::-webkit-scrollbar-thumb:hover,
+.dataset-workspace .column-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .dataset-workspace .table-scroll,
+  .dataset-workspace .column-list {
+    max-height: 380px;
+  }
+}
