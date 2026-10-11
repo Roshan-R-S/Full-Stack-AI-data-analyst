@@ -8,6 +8,7 @@ import {
 } from "../services/datasetApi";
 
 import { runAnalysis } from "../services/analysisApi";
+import { downloadAnalysisCSV } from "../services/exportApi";
 import {
   listSavedAnalyses,
   getSavedAnalysis,
@@ -80,6 +81,7 @@ export default function AnalystPage() {
   const [savedItems, setSavedItems] =
     useState<SavedAnalysisSummary[]>([]);
   const [savedBusy, setSavedBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [savedError, setSavedError] = useState("");
 
   useEffect(() => {
@@ -310,6 +312,35 @@ export default function AnalystPage() {
       setStatus("[ERROR]");
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function exportLastRun() {
+    if (
+      !result ||
+      !lastPlan ||
+      running ||
+      loading ||
+      exporting ||
+      lastPlan.dataset_id !== datasetId
+    ) return;
+
+    setExporting(true);
+    setError("");
+    setStatus("[EXPORTING CSV...]");
+
+    try {
+      await downloadAnalysisCSV(lastPlan);
+      setStatus("[CSV EXPORT READY]");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "CSV export failed",
+      );
+      setStatus("[EXPORT ERROR]");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -723,6 +754,22 @@ export default function AnalystPage() {
             }
           >
             [ SAVE LAST RUN ]
+          </button>
+
+          <button
+            type="button"
+            className="nd-outline"
+            onClick={() => void exportLastRun()}
+            disabled={
+              !result ||
+              !lastPlan ||
+              running ||
+              loading ||
+              exporting ||
+              lastPlan.dataset_id !== datasetId
+            }
+          >
+            {exporting ? "[ EXPORTING... ]" : "[ EXPORT CSV ]"}
           </button>
 
           <span className="analysis-status" role="status">
