@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -25,6 +26,8 @@ from app.models.conversation import Conversation
 from app.models.dataset import Dataset
 from app.models.saved_analysis import SavedAnalysis
 from app.services.profiling_service import profile_dataframe
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 
@@ -68,6 +71,14 @@ def read_stored_dataset(dataset_id: str) -> pd.DataFrame:
         raise HTTPException(
             status_code=422,
             detail="Stored CSV is invalid.",
+        ) from exc
+    except OSError as exc:
+        logger.exception(
+            "Stored dataset read failed: %s", dataset_id
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Stored dataset could not be read.",
         ) from exc
 
 
@@ -119,13 +130,43 @@ async def upload_dataset(
 
     try:
         path.write_bytes(content)
+    except OSError as exc:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            logger.exception(
+                "Upload file cleanup failed: %s", dataset_id
+            )
+
+        logger.exception(
+            "Upload file write failed: %s", dataset_id
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Could not store the uploaded file.",
+        ) from exc
+
+    try:
         db.add(dataset)
         db.commit()
-        db.refresh(dataset)
-    except Exception:
+    except Exception as exc:
         db.rollback()
-        path.unlink(missing_ok=True)
-        raise
+
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            logger.exception(
+                "Failed to clean up dataset file: %s",
+                dataset_id,
+            )
+
+        logger.exception(
+            "Dataset metadata save failed: %s", dataset_id
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Could not save dataset metadata.",
+        ) from exc
 
     return serialize_dataset(dataset)
 
@@ -202,28 +243,92 @@ def delete_dataset(
 ):
     dataset = get_dataset_or_404(dataset_id, db)
 
-    conversations = db.scalars(
-        select(Conversation).where(
-            Conversation.dataset_id == dataset_id
-        )
-    ).all()
-
-    for conversation in conversations:
-        db.delete(conversation)
-
-    saved_analyses = db.scalars(
-        select(SavedAnalysis).where(
-            SavedAnalysis.dataset_id == dataset_id
-        )
-    ).all()
-
-    for item in saved_analyses:
-        db.delete(item)
-
-    db.delete(dataset)
-    db.commit()
-
     path = UPLOAD_DIR / f"{dataset_id}.csv"
-    path.unlink(missing_ok=True)
+    staged_path = None
+
+    # Move the CSV out of its active location first.
+    # A failed rename leaves the database untouched.
+    try:
+        if path.exists():
+            staged_path = path.with_name(
+                f".{dataset_id}.{uuid4().hex}.deleting"
+            )
+            path.replace(staged_path)
+    except OSError as exc:
+        logger.exception(
+            "Dataset delete staging failed: %s", dataset_id
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Could not prepare dataset deletion.",
+        ) from exc
+
+    try:
+        conversations = db.scalars(
+            select(Conversation).where(
+                Conversation.dataset_id == dataset_id
+            )
+        ).all()
+
+        for conversation in conversations:
+            db.delete(conversation)
+
+        saved_analyses = db.scalars(
+            select(SavedAnalysis).where(
+                SavedAnalysis.dataset_id == dataset_id
+            )
+        ).all()
+
+        for item in saved_analyses:
+            db.delete(item)
+
+        db.delete(dataset)
+        db.commit()
+
+    except Exception as exc:
+        db.rollback()
+
+        # Restore the active CSV if SQLite could not commit.
+        if staged_path is not None:
+            try:
+                staged_path.replace(path)
+            except OSError as restore_exc:
+                logger.exception(
+                    "CRITICAL: Dataset file restoration "
+                    "failed for %s; staged file: %s",
+                    dataset_id,
+                    staged_path,
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "Dataset deletion failed. "
+                        "Manual file recovery may be required."
+                    ),
+                ) from restore_exc
+
+        logger.exception(
+            "Dataset database deletion failed: %s",
+            dataset_id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Could not delete dataset. Please retry.",
+        ) from exc
+
+    # Once SQLite has committed, never restore the active CSV:
+    # the metadata and dependent records are already deleted.
+    if staged_path is not None:
+        try:
+            staged_path.unlink()
+        except OSError:
+            logger.warning(
+                "Dataset %s was deleted, but staged file "
+                "cleanup is pending: %s",
+                dataset_id,
+                staged_path,
+                exc_info=True,
+            )
 
     return Response(status_code=204)
