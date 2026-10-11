@@ -3,7 +3,6 @@ from pandas.api.types import is_numeric_dtype
 
 from app.schemas.analysis import AnalysisRequest
 
-
 NUMERIC_AGGREGATIONS = {
     "sum", "mean", "min", "max"
 }

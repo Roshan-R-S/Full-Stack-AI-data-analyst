@@ -7,7 +7,6 @@ from pydantic import ValidationError
 from app.analytics.executor import execute_analysis
 from app.schemas.analysis import AnalysisRequest
 
-
 DATASET_ID = UUID(
     "00000000-0000-0000-0000-000000000001"
 )

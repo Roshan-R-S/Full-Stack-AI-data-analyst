@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 from app.models.conversation import utc_now
+
+if TYPE_CHECKING:
+    from app.models.conversation import Conversation
 
 
 class Message(Base):
@@ -30,6 +35,6 @@ class Message(Base):
         String(40), default=utc_now, nullable=False
     )
 
-    conversation: Mapped["Conversation"] = relationship(
+    conversation: Mapped["Conversation"] = relationship(  # noqa: UP037
         "Conversation", back_populates="messages"
     )

@@ -92,7 +92,8 @@ def ask_ai(
         explanation = explain_results(
             client, model, request.question, analysis
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
+        # Preserve verified results if AI explanation fails.
         logger.warning(
             "Gemini explanation failed: %s",
             type(exc).__name__,

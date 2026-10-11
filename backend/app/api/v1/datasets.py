@@ -1,4 +1,3 @@
-import io
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -22,8 +21,8 @@ from app.core.config import (
     UPLOAD_DIR,
 )
 from app.db.session import get_db
-from app.models.dataset import Dataset
 from app.models.conversation import Conversation
+from app.models.dataset import Dataset
 from app.models.saved_analysis import SavedAnalysis
 from app.services.profiling_service import profile_dataframe
 

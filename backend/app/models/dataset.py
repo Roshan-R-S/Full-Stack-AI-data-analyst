@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -24,7 +24,7 @@ class Dataset(Base):
     uploaded_at: Mapped[str] = mapped_column(
         String(40),
         default=lambda: datetime.now(
-            timezone.utc
+            UTC
         ).isoformat(),
         nullable=False,
     )

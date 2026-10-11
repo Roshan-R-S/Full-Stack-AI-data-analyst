@@ -26,3 +26,6 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/v1/*.py" = ["B008"]

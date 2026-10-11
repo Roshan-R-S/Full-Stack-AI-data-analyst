@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html import escape
 from io import BytesIO
 from pathlib import Path
@@ -19,7 +19,6 @@ from reportlab.platypus import (
 )
 
 from app.schemas.analysis import AnalysisRequest
-
 
 BLACK = colors.HexColor("#171717")
 RED = colors.HexColor("#D71921")
@@ -145,7 +144,7 @@ def build_pdf_report(
         paragraph(f"Dataset: {dataset_filename}", normal),
         paragraph(
             "Generated UTC: " +
-            datetime.now(timezone.utc).strftime(
+            datetime.now(UTC).strftime(
                 "%Y-%m-%d %H:%M UTC"
             ),
             small,

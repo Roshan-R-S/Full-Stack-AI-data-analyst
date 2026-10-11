@@ -1,4 +1,3 @@
-from uuid import UUID
 
 import pandas as pd
 import pytest
