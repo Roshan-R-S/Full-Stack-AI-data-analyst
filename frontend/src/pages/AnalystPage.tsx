@@ -8,7 +8,7 @@ import {
 } from "../services/datasetApi";
 
 import { runAnalysis } from "../services/analysisApi";
-import { downloadAnalysisCSV } from "../services/exportApi";
+import { downloadAnalysisCSV, downloadAnalysisPDF } from "../services/exportApi";
 import {
   listSavedAnalyses,
   getSavedAnalysis,
@@ -312,6 +312,35 @@ export default function AnalystPage() {
       setStatus("[ERROR]");
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function exportPdfReport() {
+    if (
+      !result ||
+      !lastPlan ||
+      running ||
+      loading ||
+      exporting ||
+      lastPlan.dataset_id !== datasetId
+    ) return;
+
+    setExporting(true);
+    setError("");
+    setStatus("[EXPORTING PDF...]");
+
+    try {
+      await downloadAnalysisPDF(lastPlan);
+      setStatus("[PDF EXPORT READY]");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "PDF export failed",
+      );
+      setStatus("[EXPORT ERROR]");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -770,6 +799,22 @@ export default function AnalystPage() {
             }
           >
             {exporting ? "[ EXPORTING... ]" : "[ EXPORT CSV ]"}
+          </button>
+
+          <button
+            type="button"
+            className="nd-outline"
+            onClick={() => void exportPdfReport()}
+            disabled={
+              !result ||
+              !lastPlan ||
+              running ||
+              loading ||
+              exporting ||
+              lastPlan.dataset_id !== datasetId
+            }
+          >
+            [ EXPORT PDF ]
           </button>
 
           <span className="analysis-status" role="status">

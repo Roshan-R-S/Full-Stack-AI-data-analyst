@@ -11,6 +11,7 @@ from app.api.v1.datasets import (
 )
 from app.db.session import get_db
 from app.schemas.analysis import AnalysisRequest
+from app.services.pdf_report import build_pdf_report
 
 router = APIRouter(prefix="/exports", tags=["Exports"])
 
@@ -72,6 +73,41 @@ def export_analysis_csv(
         headers={
             "Content-Disposition":
                 f'attachment; filename="analysis-{dataset_id[:8]}.csv"',
+            "X-Export-Truncated":
+                str(analysis["truncated"]).lower(),
+        },
+    )
+
+@router.post("/analysis/pdf")
+def export_analysis_pdf(
+    request: AnalysisRequest,
+    db: Session = Depends(get_db),
+):
+    dataset_id = str(request.dataset_id)
+
+    dataset = get_dataset_or_404(dataset_id, db)
+    dataframe = read_stored_dataset(dataset_id)
+
+    try:
+        analysis = execute_analysis(dataframe, request)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    pdf_bytes = build_pdf_report(
+        analysis,
+        request,
+        dataset.filename,
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="report-{dataset_id[:8]}.pdf"',
             "X-Export-Truncated":
                 str(analysis["truncated"]).lower(),
         },
