@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.v1.router import api_router
+from app.core.local_security import local_security_middleware
 from app.db.session import Base, engine
 from app.models.conversation import Conversation  # noqa: F401
 from app.models.dataset import Dataset  # noqa: F401
@@ -22,5 +23,7 @@ app = FastAPI(
     description="AI-powered data analytics API",
     lifespan=lifespan,
 )
+
+app.middleware("http")(local_security_middleware)
 
 app.include_router(api_router, prefix="/api/v1")
