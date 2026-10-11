@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from app.api.v1.router import api_router
 from app.db.session import Base, engine
 from app.models.dataset import Dataset  # noqa: F401
+from app.models.conversation import Conversation  # noqa: F401
+from app.models.message import Message  # noqa: F401
 
 
 @asynccontextmanager

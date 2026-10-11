@@ -1480,3 +1480,120 @@ button:focus-visible {
     padding: 14px;
   }
 }
+/* PHASE 6 CHAT HISTORY */
+
+.ai-history {
+  min-width: 0;
+  margin: 32px 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--border-visible);
+  border-bottom: 1px solid var(--border-visible);
+}
+
+.ai-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: var(--text-secondary);
+}
+
+.ai-history-new {
+  width: 100%;
+  min-height: 42px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-visible);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-display);
+  text-align: left;
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+}
+
+.ai-history-new:hover {
+  border-color: var(--text-display);
+}
+
+.ai-history-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.ai-history-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
+}
+
+.ai-history-item.selected {
+  background: var(--surface-raised);
+  border-left-color: var(--text-display);
+}
+
+.ai-history-open {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 8px;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ai-history-item.selected .ai-history-open {
+  color: var(--text-display);
+}
+
+.ai-history-actions {
+  display: flex;
+  gap: 3px;
+  padding-right: 4px;
+}
+
+.ai-history-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 7px 4px;
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+}
+
+.ai-history-actions button:hover {
+  color: var(--text-display);
+}
+
+.ai-history-actions button:last-child:hover {
+  color: var(--accent);
+}
+
+.ai-history-empty {
+  margin: 12px 0;
+  font-family: "Space Mono", monospace;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.ai-history button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .ai-history-list {
+    max-height: 220px;
+  }
+}

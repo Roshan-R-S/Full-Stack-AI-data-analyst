@@ -23,6 +23,7 @@ from app.core.config import (
 )
 from app.db.session import get_db
 from app.models.dataset import Dataset
+from app.models.conversation import Conversation
 from app.services.profiling_service import profile_dataframe
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -200,6 +201,15 @@ def delete_dataset(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, db)
+
+    conversations = db.scalars(
+        select(Conversation).where(
+            Conversation.dataset_id == dataset_id
+        )
+    ).all()
+
+    for conversation in conversations:
+        db.delete(conversation)
 
     db.delete(dataset)
     db.commit()

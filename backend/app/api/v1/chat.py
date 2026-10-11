@@ -1,4 +1,6 @@
+import json
 import logging
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,6 +14,8 @@ from app.api.v1.datasets import (
     read_stored_dataset,
 )
 from app.db.session import get_db
+from app.models.conversation import Conversation, utc_now
+from app.models.message import Message
 from app.schemas.chat import AskRequest
 
 logger = logging.getLogger(__name__)
@@ -27,6 +31,23 @@ def ask_ai(
     dataset_id = str(request.dataset_id)
 
     get_dataset_or_404(dataset_id, db)
+
+    conversation = None
+
+    if request.conversation_id is not None:
+        conversation = db.get(
+            Conversation, str(request.conversation_id)
+        )
+
+        if (
+            conversation is None
+            or conversation.dataset_id != dataset_id
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found for this dataset.",
+            )
+
     df = read_stored_dataset(dataset_id)
 
     try:
@@ -82,10 +103,51 @@ def ask_ai(
             "Review the verified results table."
         )
 
+    plan_data = plan.model_dump(mode="json")
+
+    try:
+        if conversation is None:
+            conversation = Conversation(
+                id=str(uuid4()),
+                dataset_id=dataset_id,
+                title=request.question.strip()[:120],
+            )
+            db.add(conversation)
+
+        db.add_all([
+            Message(
+                conversation_id=conversation.id,
+                role="user",
+                content=request.question,
+            ),
+            Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=explanation,
+                model=model,
+                plan_json=json.dumps(plan_data),
+                analysis_json=json.dumps(analysis, allow_nan=False),
+            ),
+        ])
+
+        conversation.updated_at = utc_now()
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error(
+            "Conversation save failed: %s",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="The analysis completed but could not be saved.",
+        ) from exc
+
     return {
         "question": request.question,
         "model": model,
         "answer": explanation,
-        "plan": plan.model_dump(mode="json"),
+        "plan": plan_data,
         "analysis": analysis,
+        "conversation_id": conversation.id,
     }

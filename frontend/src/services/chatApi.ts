@@ -7,6 +7,7 @@ export async function askAI(
   datasetId: string,
   question: string,
   signal?: AbortSignal,
+  conversationId?: string | null,
 ): Promise<AskResponse> {
   const response = await fetch(`${BASE}/chat/ask`, {
     method: "POST",
@@ -16,6 +17,9 @@ export async function askAI(
     body: JSON.stringify({
       dataset_id: datasetId,
       question,
+      ...(conversationId
+        ? { conversation_id: conversationId }
+        : {}),
     }),
     signal,
   });

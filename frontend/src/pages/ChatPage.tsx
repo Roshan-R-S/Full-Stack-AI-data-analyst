@@ -11,6 +11,16 @@ import {
 } from "../services/datasetApi";
 
 import { askAI } from "../services/chatApi";
+import {
+  listConversations,
+  getConversation,
+  renameConversation,
+  deleteConversation,
+} from "../services/conversationApi";
+import type {
+  ConversationSummary,
+  StoredMessage,
+} from "../types/conversation";
 
 import type {
   Dataset,
@@ -84,6 +94,25 @@ function buildSuggestions(
   return [];
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "The operation failed.";
+}
+
+function restoreMessages(
+  messages: StoredMessage[],
+): ChatEntry[] {
+  return messages.map((message) => ({
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    model: message.model ?? undefined,
+    plan: message.plan ?? undefined,
+    analysis: message.analysis ?? undefined,
+  }));
+}
+
 export default function ChatPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [datasetId, setDatasetId] = useState("");
@@ -91,12 +120,19 @@ export default function ChatPage() {
     useState<DatasetProfile | null>(null);
 
   const [messages, setMessages] = useState<ChatEntry[]>([]);
+  const [history, setHistory] =
+    useState<ConversationSummary[]>([]);
+  const [conversationId, setConversationId] =
+    useState<string | null>(null);
+
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState("");
 
   const activeRequest = useRef<AbortController | null>(null);
+  const historyVersion = useRef(0);
 
   useEffect(() => {
     let mounted = true;
@@ -108,13 +144,7 @@ export default function ChatPage() {
         setDatasetId(items[0]?.id ?? "");
       })
       .catch((err: unknown) => {
-        if (mounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Unable to load datasets",
-          );
-        }
+        if (mounted) setError(errorMessage(err));
       });
 
     return () => { mounted = false; };
@@ -128,25 +158,67 @@ export default function ChatPage() {
 
     let mounted = true;
     setLoadingProfile(true);
+    setProfile(null);
 
     getDatasetProfile(datasetId)
       .then((data) => {
         if (mounted) setProfile(data);
       })
       .catch((err: unknown) => {
-        if (mounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Unable to inspect dataset",
-          );
-        }
+        if (mounted) setError(errorMessage(err));
       })
       .finally(() => {
         if (mounted) setLoadingProfile(false);
       });
 
     return () => { mounted = false; };
+  }, [datasetId]);
+
+  useEffect(() => {
+    const version = ++historyVersion.current;
+
+    setMessages([]);
+    setConversationId(null);
+    setHistory([]);
+    setDraft("");
+
+    if (!datasetId) {
+      setLoadingHistory(false);
+      return;
+    }
+
+    setLoadingHistory(true);
+
+    void (async () => {
+      try {
+        const items = await listConversations(datasetId);
+
+        if (version !== historyVersion.current) return;
+        setHistory(items);
+
+        // Reopen the newest conversation after a refresh.
+        if (items.length > 0) {
+          const saved = await getConversation(items[0].id);
+
+          if (version !== historyVersion.current) return;
+
+          setConversationId(saved.id);
+          setMessages(restoreMessages(saved.messages));
+        }
+      } catch (err) {
+        if (version === historyVersion.current) {
+          setError(errorMessage(err));
+        }
+      } finally {
+        if (version === historyVersion.current) {
+          setLoadingHistory(false);
+        }
+      }
+    })();
+
+    return () => {
+      historyVersion.current += 1;
+    };
   }, [datasetId]);
 
   useEffect(() => {
@@ -165,13 +237,120 @@ export default function ChatPage() {
   );
 
   function selectDataset(id: string) {
-    if (busy) return;
+    if (busy || loadingHistory) return;
 
+    setError("");
     setDatasetId(id);
+  }
+
+  function newChat() {
+    if (busy || loadingHistory) return;
+
+    historyVersion.current += 1;
+    setConversationId(null);
     setMessages([]);
     setDraft("");
-    setProfile(null);
     setError("");
+  }
+
+  async function openHistory(id: string) {
+    if (busy || loadingHistory || id === conversationId) return;
+
+    const version = ++historyVersion.current;
+    setLoadingHistory(true);
+    setError("");
+
+    try {
+      const saved = await getConversation(id);
+
+      if (version !== historyVersion.current) return;
+
+      if (saved.dataset_id !== datasetId) {
+        throw new Error("Conversation belongs to another dataset.");
+      }
+
+      setConversationId(saved.id);
+      setMessages(restoreMessages(saved.messages));
+      setDraft("");
+    } catch (err) {
+      if (version === historyVersion.current) {
+        setError(errorMessage(err));
+      }
+    } finally {
+      if (version === historyVersion.current) {
+        setLoadingHistory(false);
+      }
+    }
+  }
+
+  async function renameHistory(id: string) {
+    if (busy || loadingHistory) return;
+
+    const item = history.find((entry) => entry.id === id);
+    if (!item) return;
+
+    const entered = window.prompt(
+      "Rename conversation",
+      item.title,
+    );
+
+    if (entered === null) return;
+
+    const title = entered.trim();
+
+    if (!title || title.length > 120) {
+      setError("Title must be 1 to 120 characters.");
+      return;
+    }
+
+    setLoadingHistory(true);
+    setError("");
+
+    try {
+      const updated = await renameConversation(id, title);
+
+      setHistory((items) => items.map((entry) =>
+        entry.id === id ? updated : entry,
+      ));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  async function removeHistory(id: string) {
+    if (busy || loadingHistory) return;
+
+    const item = history.find((entry) => entry.id === id);
+    if (!item) return;
+
+    const confirmed = window.confirm(
+      `Delete "${item.title}" and all its messages?`,
+    );
+
+    if (!confirmed) return;
+
+    setLoadingHistory(true);
+    setError("");
+
+    try {
+      await deleteConversation(id);
+
+      setHistory((items) =>
+        items.filter((entry) => entry.id !== id),
+      );
+
+      if (conversationId === id) {
+        setConversationId(null);
+        setMessages([]);
+        setDraft("");
+      }
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoadingHistory(false);
+    }
   }
 
   async function sendQuestion(question: string) {
@@ -179,6 +358,8 @@ export default function ChatPage() {
 
     if (
       busy ||
+      loadingHistory ||
+      activeRequest.current ||
       !datasetId ||
       cleanQuestion.length < 5 ||
       cleanQuestion.length > 500
@@ -188,6 +369,7 @@ export default function ChatPage() {
 
     const controller = new AbortController();
     activeRequest.current = controller;
+    const version = historyVersion.current;
 
     const userMessage: ChatEntry = {
       id: crypto.randomUUID(),
@@ -205,9 +387,12 @@ export default function ChatPage() {
         datasetId,
         cleanQuestion,
         controller.signal,
+        conversationId,
       );
 
       if (controller.signal.aborted) return;
+
+      setConversationId(response.conversation_id);
 
       const assistantMessage: ChatEntry = {
         id: crypto.randomUUID(),
@@ -219,6 +404,17 @@ export default function ChatPage() {
       };
 
       setMessages((items) => [...items, assistantMessage]);
+
+      // Refresh the sidebar without delaying the answer.
+      void listConversations(datasetId)
+        .then((items) => {
+          if (version === historyVersion.current) {
+            setHistory(items);
+          }
+        })
+        .catch(() => {
+          // History remains available on next load.
+        });
     } catch (err) {
       if (controller.signal.aborted) return;
 
@@ -227,12 +423,7 @@ export default function ChatPage() {
       );
 
       setDraft(cleanQuestion);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to complete AI analysis",
-      );
+      setError(errorMessage(err));
     } finally {
       if (!controller.signal.aborted) {
         activeRequest.current = null;
@@ -246,13 +437,20 @@ export default function ChatPage() {
       <div className="section-heading">
         <span>AI / DATA ANALYST</span>
         <span>
-          {busy ? "[PROCESSING]" : "[READY]"}
+          {busy
+            ? "[PROCESSING]"
+            : loadingHistory
+              ? "[LOADING HISTORY]"
+              : "[READY]"}
         </span>
       </div>
 
       <div className="ai-workspace-grid">
         <aside className="ai-context-panel">
-          <label className="ai-dataset-label" htmlFor="ai-dataset">
+          <label
+            className="ai-dataset-label"
+            htmlFor="ai-dataset"
+          >
             01 / ACTIVE DATASET
           </label>
 
@@ -262,7 +460,7 @@ export default function ChatPage() {
             onChange={(event) =>
               selectDataset(event.target.value)
             }
-            disabled={busy}
+            disabled={busy || loadingHistory}
             className="ai-dataset-select"
           >
             {datasets.length === 0 && (
@@ -291,17 +489,105 @@ export default function ChatPage() {
             </div>
           )}
 
+          <section
+            className="ai-history"
+            aria-label="Conversation history"
+          >
+            <div className="ai-history-heading">
+              <span>02 / CONVERSATIONS</span>
+              <span>{history.length}</span>
+            </div>
+
+            <button
+              type="button"
+              className="ai-history-new"
+              onClick={newChat}
+              disabled={
+                busy || loadingHistory || !datasetId
+              }
+            >
+              + NEW CHAT
+            </button>
+
+            <div className="ai-history-list">
+              {history.length === 0 && (
+                <p className="ai-history-empty">
+                  {loadingHistory
+                    ? "[LOADING...]"
+                    : "[NO SAVED CONVERSATIONS]"}
+                </p>
+              )}
+
+              {history.map((entry) => (
+                <div
+                  key={entry.id}
+                  className={
+                    "ai-history-item" +
+                    (conversationId === entry.id
+                      ? " selected"
+                      : "")
+                  }
+                >
+                  <button
+                    type="button"
+                    className="ai-history-open"
+                    title={entry.title}
+                    onClick={() =>
+                      void openHistory(entry.id)
+                    }
+                    disabled={busy || loadingHistory}
+                    aria-current={
+                      conversationId === entry.id
+                        ? "true"
+                        : undefined
+                    }
+                  >
+                    {entry.title}
+                  </button>
+
+                  <div className="ai-history-actions">
+                    <button
+                      type="button"
+                      aria-label={`Rename ${entry.title}`}
+                      title="Rename"
+                      disabled={busy || loadingHistory}
+                      onClick={() =>
+                        void renameHistory(entry.id)
+                      }
+                    >
+                      REN
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${entry.title}`}
+                      title="Delete"
+                      disabled={busy || loadingHistory}
+                      onClick={() =>
+                        void removeHistory(entry.id)
+                      }
+                    >
+                      DEL
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <SuggestedQuestions
             suggestions={suggestions}
             onSelect={(question) => {
               void sendQuestion(question);
             }}
-            disabled={busy || loadingProfile}
+            disabled={
+              busy || loadingProfile || loadingHistory
+            }
           />
 
           <p className="ai-privacy-note">
-            YOUR QUESTION, COLUMN SCHEMA, AND COMPUTED RESULTS ARE SENT TO AI.
-            FULL CSV DATA REMAINS IN THE LOCAL BACKEND.
+            QUESTIONS, ANSWERS AND VERIFIED RESULTS ARE
+            SAVED IN LOCAL SQLITE. GEMINI DOES NOT YET
+            RECEIVE PREVIOUS CONVERSATION MESSAGES.
           </p>
         </aside>
 
@@ -325,13 +611,18 @@ export default function ChatPage() {
             }}
             loading={busy}
             disabled={
-              busy || loadingProfile || !profile || !datasetId
+              busy ||
+              loadingHistory ||
+              loadingProfile ||
+              !profile ||
+              !datasetId
             }
           />
 
           <p className="ai-session-note">
-            [SESSION ONLY] This version does not yet save
-            conversations or send previous messages as context.
+            {conversationId
+              ? "[SAVED / SQLITE] CONVERSATION PERSISTS AFTER REFRESH."
+              : "[NEW CHAT] FIRST SUCCESSFUL ANSWER CREATES THE SESSION."}
           </p>
         </div>
       </div>

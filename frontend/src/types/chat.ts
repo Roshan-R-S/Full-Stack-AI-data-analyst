@@ -5,6 +5,7 @@ import type {
 
 export interface AskResponse {
   question: string;
+  conversation_id: string;
   model: string;
   answer: string;
   plan: AnalysisRequest;
