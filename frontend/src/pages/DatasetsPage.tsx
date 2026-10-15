@@ -48,31 +48,49 @@ export default function DatasetsPage() {
     return () => { active = false; };
   }, []);
 
+  // Dataset profiling is independent of preview pagination.
   useEffect(() => {
+    setProfile(null);
+
+    if (!selectedId) return;
+
+    let active = true;
+
+    getDatasetProfile(selectedId)
+      .then((nextProfile) => {
+        if (active) setProfile(nextProfile);
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setError(
+            err instanceof Error ? err.message : "Dataset profiling failed",
+          );
+        }
+      });
+
+    return () => { active = false; };
+  }, [selectedId]);
+
+  // Fetch only preview rows when the page changes.
+  useEffect(() => {
+    setPreview(null);
+
     if (!selectedId) {
-      setPreview(null);
-      setProfile(null);
+      setLoading(false);
       return;
     }
 
     let active = true;
     setLoading(true);
-    setPreview(null);
-    setProfile(null);
 
-    Promise.all([
-      getDatasetPreview(selectedId, page),
-      getDatasetProfile(selectedId),
-    ])
-      .then(([nextPreview, nextProfile]) => {
-        if (!active) return;
-        setPreview(nextPreview);
-        setProfile(nextProfile);
+    getDatasetPreview(selectedId, page)
+      .then((nextPreview) => {
+        if (active) setPreview(nextPreview);
       })
       .catch((err: unknown) => {
         if (active) {
           setError(
-            err instanceof Error ? err.message : "Dataset loading failed",
+            err instanceof Error ? err.message : "Dataset preview failed",
           );
         }
       })
