@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import UploadZone from "../components/upload/UploadZone";
 import DatasetTable from "../components/datasets/DatasetTable";
 import ColumnInspector from "../components/datasets/ColumnInspector";
+import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 import {
   listDatasets,
@@ -24,6 +25,8 @@ export default function DatasetsPage() {
   const [profile, setProfile] = useState<DatasetProfile | null>(null);
   const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
+  const [loadingDatasets, setLoadingDatasets] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("[READY]");
   const [error, setError] = useState("");
@@ -43,6 +46,9 @@ export default function DatasetsPage() {
             err instanceof Error ? err.message : "Failed to load datasets",
           );
         }
+      })
+      .finally(() => {
+        if (active) setLoadingDatasets(false);
       });
 
     return () => { active = false; };
@@ -51,6 +57,7 @@ export default function DatasetsPage() {
   // Dataset profiling is independent of preview pagination.
   useEffect(() => {
     setProfile(null);
+    setLoadingProfile(Boolean(selectedId));
 
     if (!selectedId) return;
 
@@ -66,6 +73,9 @@ export default function DatasetsPage() {
             err instanceof Error ? err.message : "Dataset profiling failed",
           );
         }
+      })
+      .finally(() => {
+        if (active) setLoadingProfile(false);
       });
 
     return () => { active = false; };
@@ -183,7 +193,9 @@ export default function DatasetsPage() {
             <span>{datasets.length}</span>
           </div>
 
-          {datasets.length === 0 ? (
+          {loadingDatasets ? (
+            <LoadingSkeleton variant="list" label="Loading datasets" />
+          ) : datasets.length === 0 ? (
             <p className="meta-note">
               [NO DATASETS] Upload a CSV to begin.
             </p>
@@ -266,7 +278,14 @@ export default function DatasetsPage() {
                 onPageChange={setPage}
               />
 
-              <ColumnInspector profile={profile} />
+              {loadingProfile ? (
+                <LoadingSkeleton
+                  variant="list"
+                  label="Loading column profile"
+                />
+              ) : (
+                <ColumnInspector profile={profile} />
+              )}
             </>
           )}
         </div>

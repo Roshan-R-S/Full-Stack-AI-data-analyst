@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import VerifiedChart from "../components/charts/LazyVerifiedChart";
+import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import type { FormEvent } from "react";
 
 import {
@@ -914,7 +915,12 @@ export default function AnalystPage() {
           <span>{result ? "COMPUTED BY PANDAS" : "AWAITING QUERY"}</span>
         </div>
 
-        {!result ? (
+        {running ? (
+          <LoadingSkeleton
+            variant="chart"
+            label="Running verified Pandas analysis"
+          />
+        ) : !result ? (
           <div className="analysis-empty">
             <p className="analysis-empty-number">[ 00 ]</p>
             <h2>NO RESULTS YET.</h2>

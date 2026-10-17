@@ -1,4 +1,5 @@
 import type { DatasetPreview } from "../../types/dataset";
+import LoadingSkeleton from "../common/LoadingSkeleton";
 
 interface Props {
   preview: DatasetPreview | null;
@@ -13,8 +14,14 @@ export default function DatasetTable({
   page,
   onPageChange,
 }: Props) {
-  if (loading || !preview) {
-    return <p className="meta-note">[LOADING DATA PREVIEW...]</p>;
+  if (loading) {
+    return (
+      <LoadingSkeleton variant="table" label="Loading data preview" />
+    );
+  }
+
+  if (!preview) {
+    return <p className="meta-note">[DATA PREVIEW UNAVAILABLE]</p>;
   }
 
   const totalPages = Math.max(

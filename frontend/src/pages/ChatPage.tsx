@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import ChatWindow from "../components/chat/ChatWindow";
+import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import ChatInput from "../components/chat/ChatInput";
 import SuggestedQuestions from
   "../components/chat/SuggestedQuestions";
@@ -592,10 +593,17 @@ export default function ChatPage() {
         </aside>
 
         <div className="ai-conversation-panel">
-          <ChatWindow
-            messages={messages}
-            loading={busy}
-          />
+          {loadingHistory ? (
+            <LoadingSkeleton
+              variant="conversation"
+              label="Restoring conversation history"
+            />
+          ) : (
+            <ChatWindow
+              messages={messages}
+              loading={busy}
+            />
+          )}
 
           {error && (
             <p className="inline-error" role="alert">

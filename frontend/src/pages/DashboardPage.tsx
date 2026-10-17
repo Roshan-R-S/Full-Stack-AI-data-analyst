@@ -11,6 +11,7 @@ import {
 
 import { runAnalysis } from "../services/analysisApi";
 import { downloadChartExcel } from "../services/exportApi";
+import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 import type {
   Dataset,
@@ -622,9 +623,10 @@ export default function DashboardPage() {
       )}
 
       {running && (
-        <p className="dashboard-loading" role="status">
-          [RUNNING VERIFIED ANALYTICAL QUERY...]
-        </p>
+        <LoadingSkeleton
+          variant="chart"
+          label="Computing dashboard results"
+        />
       )}
 
       {!running && profile && !group && (
