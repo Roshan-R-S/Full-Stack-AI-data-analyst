@@ -6,6 +6,8 @@ import {
   Bar,
   LineChart,
   Line,
+  AreaChart,
+  Area,
   PieChart,
   Pie,
   Cell,
@@ -20,12 +22,13 @@ import type {
   AnalysisResult,
 } from "../../types/analysis";
 
-type ChartMode = "bar" | "line" | "donut";
+export type ChartMode = "bar" | "horizontal" | "line" | "area" | "pie" | "donut";
 
 interface Props {
   result: AnalysisResult;
   groupBy?: string[];
   aggregation?: Aggregation;
+  onExportExcel?: (mode: ChartMode) => Promise<void>;
 }
 
 interface ChartPoint {
@@ -35,14 +38,9 @@ interface ChartPoint {
 }
 
 const palette = [
-  "var(--text-display)",
-  "#999999",
-  "#777777",
-  "#555555",
-  "#BBBBBB",
-  "#666666",
-  "#888888",
-  "#444444",
+  "#D71921", "#F97316", "#EAB308", "#84CC16",
+  "#10B981", "#06B6D4", "#3B82F6", "#6366F1",
+  "#A855F7", "#EC4899", "#14B8A6", "#D97706",
 ];
 
 function formatValue(value: number): string {
@@ -86,9 +84,12 @@ export default function VerifiedChart({
   result,
   groupBy,
   aggregation,
+  onExportExcel,
 }: Props) {
   const [selectedMode, setSelectedMode] =
     useState<ChartMode>("bar");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   const groupColumn = groupBy?.[0];
 
@@ -140,15 +141,33 @@ export default function VerifiedChart({
   const canUseDonut =
     complete &&
     points.length >= 2 &&
-    points.length <= 8 &&
     (aggregation === "count" || aggregation === "sum") &&
     points.every((point) => point.value >= 0) &&
     points.some((point) => point.value > 0);
 
-  const modes: ChartMode[] = ["bar"];
 
-  if (canUseLine) modes.push("line");
-  if (canUseDonut) modes.push("donut");
+  // Show the 11 largest categories and combine the rest.
+  const sortedPiePoints = [...points].sort(
+    (a, b) => b.value - a.value,
+  );
+
+  const piePoints = sortedPiePoints.length > 12
+    ? [
+        ...sortedPiePoints.slice(0, 11),
+        {
+          label: `Other (${sortedPiePoints.length - 11} categories)`,
+          value: sortedPiePoints
+            .slice(11)
+            .reduce((total, point) => total + point.value, 0),
+          order: null,
+        },
+      ]
+    : sortedPiePoints;
+
+  const modes: ChartMode[] = ["bar", "horizontal"];
+
+  if (canUseLine) modes.push("line", "area");
+  if (canUseDonut) modes.push("pie", "donut");
 
   const mode = modes.includes(selectedMode)
     ? selectedMode
@@ -161,8 +180,28 @@ export default function VerifiedChart({
     : points;
 
   const visiblePoints = (
-    mode === "line" ? orderedPoints : points
+    (mode === "line" || mode === "area") ? orderedPoints : points
   ).slice(0, 24);
+
+
+  async function handleExcelExport() {
+    if (!onExportExcel || exporting) return;
+
+    setExporting(true);
+    setExportError("");
+
+    try {
+      await onExportExcel(mode);
+    } catch (error) {
+      setExportError(
+        error instanceof Error
+          ? error.message
+          : "Excel export failed.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const tooltipStyle = {
     backgroundColor: "var(--surface-raised)",
@@ -217,7 +256,26 @@ export default function VerifiedChart({
             </button>
           ))}
         </div>
+
+        {onExportExcel && (
+          <button
+            type="button"
+            className="verified-chart-excel"
+            disabled={exporting}
+            onClick={() => void handleExcelExport()}
+          >
+            {exporting
+              ? "[ EXPORTING... ]"
+              : "[ DOWNLOAD EXCEL ]"}
+          </button>
+        )}
       </div>
+
+      {exportError && (
+        <p className="inline-error" role="alert">
+          [ERROR] {exportError}
+        </p>
+      )}
 
       <div className="verified-chart-canvas">
         {mode === "bar" && (
@@ -268,6 +326,51 @@ export default function VerifiedChart({
                 dataKey="value"
                 fill="var(--text-display)"
                 maxBarSize={46}
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+
+
+        {mode === "horizontal" && (
+          <ResponsiveContainer
+            width="100%"
+            height={Math.max(
+              320,
+              Math.min(700, visiblePoints.length * 36),
+            )}
+          >
+            <BarChart
+              layout="vertical"
+              data={visiblePoints}
+              margin={{ top: 12, right: 24, bottom: 12, left: 8 }}
+            >
+              <CartesianGrid
+                horizontal={false}
+                stroke="var(--border-visible)"
+                strokeDasharray="2 5"
+              />
+              <XAxis
+                type="number"
+                tickFormatter={compactValue}
+                tick={{ fill: "var(--text-secondary)", fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="label"
+                width={112}
+                tick={{ fill: "var(--text-secondary)", fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              {tooltip}
+              <Bar
+                dataKey="value"
+                fill="var(--text-display)"
+                maxBarSize={28}
                 isAnimationActive={false}
               />
             </BarChart>
@@ -328,23 +431,63 @@ export default function VerifiedChart({
           </ResponsiveContainer>
         )}
 
-        {mode === "donut" && (
+
+        {mode === "area" && (
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart
+              data={visiblePoints}
+              margin={{ top: 14, right: 18, bottom: 10, left: 4 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border-visible)"
+                strokeDasharray="2 5"
+              />
+              <XAxis
+                dataKey="label"
+                height={55}
+                tick={{ fill: "var(--text-secondary)", fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                width={72}
+                tickFormatter={compactValue}
+                tick={{ fill: "var(--text-secondary)", fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              {tooltip}
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="var(--text-display)"
+                fill="var(--text-display)"
+                fillOpacity={0.13}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+
+        {(mode === "pie" || mode === "donut") && (
           <>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={visiblePoints}
+                  data={piePoints}
                   dataKey="value"
                   nameKey="label"
                   cx="50%"
                   cy="50%"
-                  innerRadius={72}
+                  innerRadius={mode === "donut" ? 72 : 0}
                   outerRadius={112}
                   stroke="var(--surface)"
                   strokeWidth={2}
                   isAnimationActive={false}
                 >
-                  {visiblePoints.map((point, index) => (
+                  {piePoints.map((point, index) => (
                     <Cell
                       key={point.label}
                       fill={palette[index % palette.length]}
@@ -357,7 +500,7 @@ export default function VerifiedChart({
             </ResponsiveContainer>
 
             <div className="verified-chart-legend">
-              {visiblePoints.map((point, index) => (
+              {piePoints.map((point, index) => (
                 <div key={point.label}>
                   <span
                     className="legend-swatch"

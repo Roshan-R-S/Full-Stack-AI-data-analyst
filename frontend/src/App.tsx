@@ -26,6 +26,17 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    window.scrollTo({
+      top: 0,
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+  }, [view]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     fetch("/api/v1/health", { signal: controller.signal })
@@ -122,6 +133,7 @@ export default function App() {
       </nav>
 
       <main>
+        <div key={view} className="view-transition">
         <section className="workspace-hero">
           <p className="eyebrow">{page.number}</p>
           <h1>{page.title}</h1>
@@ -132,6 +144,7 @@ export default function App() {
         {view === "analysis" && <AnalystPage />}
         {view === "ai" && <ChatPage />}
         {view === "dashboard" && <DashboardPage />}
+        </div>
       </main>
 
       <footer className="footer">

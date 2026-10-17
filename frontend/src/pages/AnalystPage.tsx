@@ -8,7 +8,7 @@ import {
 } from "../services/datasetApi";
 
 import { runAnalysis } from "../services/analysisApi";
-import { downloadAnalysisCSV, downloadAnalysisPDF } from "../services/exportApi";
+import { downloadAnalysisCSV, downloadAnalysisPDF, downloadChartExcel } from "../services/exportApi";
 import {
   listSavedAnalyses,
   getSavedAnalysis,
@@ -943,6 +943,13 @@ export default function AnalystPage() {
               result={result}
               groupBy={lastPlan?.group_by}
               aggregation={lastPlan?.metrics[0]?.aggregation}
+              onExportExcel={lastPlan
+                ? (mode) => downloadChartExcel(
+                    lastPlan,
+                    mode,
+                    lastPlan.metrics[0].alias,
+                  )
+                : undefined}
             />
 
             <div className="table-scroll">

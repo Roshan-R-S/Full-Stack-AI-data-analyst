@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import type { ChartMode } from "./VerifiedChart";
 
 import type {
   Aggregation,
@@ -13,6 +14,7 @@ interface Props {
   result: AnalysisResult;
   groupBy?: string[];
   aggregation?: Aggregation;
+  onExportExcel?: (mode: ChartMode) => Promise<void>;
 }
 
 export default function LazyVerifiedChart(props: Props) {

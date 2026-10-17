@@ -10,6 +10,7 @@ import {
 } from "../services/datasetApi";
 
 import { runAnalysis } from "../services/analysisApi";
+import { downloadChartExcel } from "../services/exportApi";
 
 import type {
   Dataset,
@@ -136,6 +137,8 @@ export default function DashboardPage() {
 
   const [result, setResult] =
     useState<AnalysisResult | null>(null);
+  const [resultPlan, setResultPlan] =
+    useState<AnalysisRequest | null>(null);
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [running, setRunning] = useState(false);
@@ -240,6 +243,7 @@ export default function DashboardPage() {
     let active = true;
     setRunning(true);
     setResult(null);
+    setResultPlan(null);
     setError("");
 
     const metrics: AnalysisRequest["metrics"] = [
@@ -277,7 +281,10 @@ export default function DashboardPage() {
 
     runAnalysis(plan)
       .then((data) => {
-        if (active) setResult(data);
+        if (active) {
+          setResult(data);
+          setResultPlan(plan);
+        }
       })
       .catch((err: unknown) => {
         if (active) setError(getError(err));
@@ -652,6 +659,13 @@ export default function DashboardPage() {
                   )}
                   groupBy={[applied.group]}
                   aggregation={card.aggregation}
+                  onExportExcel={resultPlan
+                    ? (mode) => downloadChartExcel(
+                        resultPlan,
+                        mode,
+                        card.key,
+                      )
+                    : undefined}
                 />
               </section>
             ))}

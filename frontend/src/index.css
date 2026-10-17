@@ -1765,3 +1765,86 @@ button:focus-visible {
     max-height: 380px;
   }
 }
+
+/* INTERACTIVE CHART AND SCROLL UPGRADE */
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 20px;
+}
+
+.dataset-workspace .table-scroll,
+.dataset-workspace .column-list,
+.ai-history-list {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.verified-chart-modes {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.verified-chart-modes button {
+  min-height: 38px;
+  transition: background-color 160ms ease,
+              color 160ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  .dataset-workspace .table-scroll,
+  .dataset-workspace .column-list,
+  .ai-history-list {
+    scroll-behavior: auto;
+  }
+
+  .verified-chart-modes button {
+    transition: none;
+  }
+}
+
+
+/* SMOOTH PAGE TRANSITIONS */
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-transition {
+  animation: page-enter 240ms ease-out both;
+}
+
+.verified-chart-excel {
+  min-height: 40px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-visible);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-display);
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.verified-chart-excel:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.verified-chart-excel:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-transition {
+    animation: none;
+  }
+}

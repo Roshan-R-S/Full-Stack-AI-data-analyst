@@ -1,7 +1,9 @@
 import csv
 import io
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.analytics.executor import execute_analysis
@@ -11,7 +13,18 @@ from app.api.v1.datasets import (
 )
 from app.db.session import get_db
 from app.schemas.analysis import AnalysisRequest
+from app.services.chart_excel import build_chart_workbook
 from app.services.pdf_report import build_pdf_report
+
+
+class ExcelChartRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan: AnalysisRequest
+    chart_type: Literal[
+        "bar", "horizontal", "line", "area", "pie", "donut"
+    ]
+    metric_alias: str = Field(min_length=1, max_length=100)
 
 router = APIRouter(prefix="/exports", tags=["Exports"])
 
@@ -108,6 +121,44 @@ def export_analysis_pdf(
         headers={
             "Content-Disposition":
                 f'attachment; filename="report-{dataset_id[:8]}.pdf"',
+            "X-Export-Truncated":
+                str(analysis["truncated"]).lower(),
+        },
+    )
+
+@router.post("/analysis/xlsx")
+def export_analysis_xlsx(
+    request: ExcelChartRequest,
+    db: Session = Depends(get_db),
+):
+    dataset_id = str(request.plan.dataset_id)
+    get_dataset_or_404(dataset_id, db)
+
+    dataframe = read_stored_dataset(dataset_id)
+
+    try:
+        analysis = execute_analysis(dataframe, request.plan)
+        content = build_chart_workbook(
+            analysis,
+            request.plan,
+            request.chart_type,
+            request.metric_alias,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail=str(exc)
+        ) from exc
+
+    return Response(
+        content=content,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="chart-{dataset_id[:8]}.xlsx"'
+            ),
             "X-Export-Truncated":
                 str(analysis["truncated"]).lower(),
         },
