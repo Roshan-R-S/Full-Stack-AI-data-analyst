@@ -277,7 +277,16 @@ export default function VerifiedChart({
         </p>
       )}
 
-      <div className="verified-chart-canvas">
+      <div
+        className={`verified-chart-canvas verified-chart-canvas--${mode}`}
+        role={mode === "pie" || mode === "donut" ? undefined : "region"}
+        aria-label={
+          mode === "pie" || mode === "donut"
+            ? undefined
+            : "Chart plot. Scroll horizontally on narrow screens."
+        }
+        tabIndex={mode === "pie" || mode === "donut" ? undefined : 0}
+      >
         {mode === "bar" && (
           <ResponsiveContainer width="100%" height={320}>
             <BarChart

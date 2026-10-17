@@ -1848,3 +1848,237 @@ html {
     animation: none;
   }
 }
+
+
+/* PHASE 8B.1 RESPONSIVE LAYOUT */
+
+.app-shell > main,
+.view-transition,
+.dashboard-chart-card,
+.ai-conversation-panel,
+.saved-analysis-info {
+  min-width: 0;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+
+.verified-chart-canvas:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Tablets and compact laptops */
+@media (max-width: 1024px) {
+  .app-shell {
+    padding-inline: clamp(20px, 4vw, 48px);
+  }
+
+  .dashboard-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-chart-card:first-child {
+    grid-column: auto;
+  }
+
+  .dashboard-chart-card {
+    padding: clamp(14px, 2.5vw, 22px);
+  }
+}
+
+/* Phones and narrow tablets */
+@media (max-width: 700px) {
+  .workspace-hero {
+    padding: 64px 0 42px;
+  }
+
+  .workspace-hero h1 {
+    font-size: clamp(34px, 8vw, 56px);
+    overflow-wrap: anywhere;
+  }
+
+  .app-navigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+    overflow: visible;
+    white-space: normal;
+    margin-top: 28px;
+  }
+
+  .app-navigation button {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 4px;
+    text-align: left;
+  }
+
+  .topbar {
+    gap: 12px;
+  }
+
+  .topbar-actions {
+    gap: 10px;
+  }
+
+  .section-heading,
+  .selected-dataset-heading {
+    flex-wrap: wrap;
+  }
+
+  .verified-chart-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .verified-chart-modes {
+    align-self: stretch;
+    width: 100%;
+    gap: 4px;
+  }
+
+  .verified-chart-modes button {
+    flex: 1 1 auto;
+    min-height: 44px;
+    padding: 10px;
+  }
+
+  .verified-chart-excel {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .verified-chart-canvas--bar,
+  .verified-chart-canvas--horizontal,
+  .verified-chart-canvas--line,
+  .verified-chart-canvas--area {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-secondary) var(--surface);
+  }
+
+  .verified-chart-canvas--bar > .recharts-responsive-container,
+  .verified-chart-canvas--line > .recharts-responsive-container,
+  .verified-chart-canvas--area > .recharts-responsive-container {
+    min-width: 520px;
+  }
+
+  .verified-chart-canvas--horizontal > .recharts-responsive-container {
+    min-width: 430px;
+  }
+
+  .verified-chart-legend > div > span:not(.legend-swatch) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .analysis-actions,
+  .dashboard-actions {
+    gap: 12px;
+  }
+
+  .saved-analysis-buttons button {
+    min-height: 44px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 20px 16px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .workspace-hero {
+    padding: 50px 0 30px;
+  }
+
+  .workspace-hero h1 {
+    font-size: clamp(32px, 10vw, 44px);
+  }
+
+  .dashboard-kpi {
+    padding: 18px 12px;
+  }
+
+  .dashboard-kpi strong {
+    font-size: clamp(18px, 5vw, 24px);
+  }
+
+  .chat-window {
+    min-height: min(360px, 55dvh);
+    max-height: 60dvh;
+  }
+
+  .chat-empty {
+    min-height: min(360px, 55dvh);
+  }
+
+  .chat-messages {
+    gap: 18px;
+    padding: 12px;
+  }
+
+  .chat-entry.user {
+    padding: 14px;
+  }
+
+  .chat-composer,
+  .analysis-form,
+  .dashboard-controls {
+    padding: 14px;
+  }
+
+  .chat-composer textarea,
+  .analysis-field select,
+  .analysis-field input,
+  .ai-dataset-select {
+    font-size: 16px;
+  }
+
+  .analysis-actions .nd-btn,
+  .dashboard-actions .nd-btn,
+  .chat-composer-bottom .nd-btn {
+    width: 100%;
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pagination-actions {
+    flex-wrap: wrap;
+  }
+
+  .saved-analysis-buttons {
+    gap: 8px;
+  }
+
+  .saved-analysis-buttons button {
+    flex: 1 1 auto;
+  }
+
+  .verified-chart {
+    padding: 14px 10px;
+  }
+
+  .verified-chart-header h3 {
+    font-size: 16px;
+  }
+}
