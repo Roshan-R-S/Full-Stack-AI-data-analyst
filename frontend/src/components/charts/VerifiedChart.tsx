@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import {
   ResponsiveContainer,
@@ -86,6 +86,8 @@ export default function VerifiedChart({
   aggregation,
   onExportExcel,
 }: Props) {
+  const descriptionId = useId();
+
   const [selectedMode, setSelectedMode] =
     useState<ChartMode>("bar");
   const [exporting, setExporting] = useState(false);
@@ -225,7 +227,8 @@ export default function VerifiedChart({
   return (
     <section
       className="verified-chart"
-      aria-label="Verified data visualization"
+      aria-label={`${mode} chart of ${metricColumn} by ${groupColumn}`}
+      aria-describedby={descriptionId}
     >
       <div className="verified-chart-header">
         <div>
@@ -276,6 +279,17 @@ export default function VerifiedChart({
           [ERROR] {exportError}
         </p>
       )}
+
+      <p id={descriptionId} className="visually-hidden">
+        {mode} visualization showing{" "}
+        {mode === "pie" || mode === "donut"
+          ? piePoints.length
+          : visiblePoints.length}
+        {" "}categories of {metricColumn} grouped by {groupColumn}.
+        {aggregation && ` Aggregation: ${aggregation}.`}
+        {result.truncated &&
+          ` Partial results: ${result.returned_rows} of ${result.result_count} groups returned.`}
+      </p>
 
       <div
         className={`verified-chart-canvas verified-chart-canvas--${mode}`}
