@@ -399,8 +399,8 @@ export default function ChatPage() {
         role: "assistant",
         content: response.answer,
         model: response.model,
-        analysis: response.analysis,
-        plan: response.plan,
+        analysis: response.analysis ?? undefined,
+        plan: response.plan ?? undefined,
       };
 
       setMessages((items) => [...items, assistantMessage]);

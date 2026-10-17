@@ -17,6 +17,10 @@ from app.db.session import get_db
 from app.models.conversation import Conversation, utc_now
 from app.models.message import Message
 from app.schemas.chat import AskRequest
+from app.services.dataset_overview import (
+    describe_dataset,
+    is_overview_question,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,61 +54,68 @@ def ask_ai(
 
     df = read_stored_dataset(dataset_id)
 
-    try:
-        client = get_gemini_client()
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Gemini API key is not configured.",
-        ) from exc
+    if is_overview_question(request.question):
+        explanation = describe_dataset(df)
+        model = "local-profile"
+        plan_data = None
+        analysis = None
+    else:
 
-    model = get_model_name()
+        try:
+            client = get_gemini_client()
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini API key is not configured.",
+            ) from exc
 
-    try:
-        ai_plan = plan_question(
-            client, model, request.question, df
-        )
-    except Exception as exc:
-        logger.warning(
-            "Gemini planning failed: %s",
-            type(exc).__name__,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Gemini planning failed. "
-                "Check model access, API key and quota."
-            ),
-        ) from exc
+        model = get_model_name()
 
-    try:
-        plan = compile_ai_plan(
-            ai_plan, request.dataset_id, df
-        )
-        analysis = execute_analysis(df, plan)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=str(exc),
-        ) from exc
+        try:
+            ai_plan = plan_question(
+                client, model, request.question, df
+            )
+        except Exception as exc:
+            logger.warning(
+                "Gemini planning failed: %s",
+                type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Gemini planning failed. "
+                    "Check model access, API key and quota."
+                ),
+            ) from exc
 
-    try:
-        explanation = explain_results(
-            client, model, request.question, analysis
-        )
-    except Exception as exc:  # noqa: BLE001
-        # Preserve verified results if AI explanation fails.
-        logger.warning(
-            "Gemini explanation failed: %s",
-            type(exc).__name__,
-        )
-        explanation = (
-            "The calculation completed successfully, "
-            "but the AI explanation is unavailable. "
-            "Review the verified results table."
-        )
+        try:
+            plan = compile_ai_plan(
+                ai_plan, request.dataset_id, df
+            )
+            analysis = execute_analysis(df, plan)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=str(exc),
+            ) from exc
 
-    plan_data = plan.model_dump(mode="json")
+        try:
+            explanation = explain_results(
+                client, model, request.question, analysis
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Preserve verified results if AI explanation fails.
+            logger.warning(
+                "Gemini explanation failed: %s",
+                type(exc).__name__,
+            )
+            explanation = (
+                "The calculation completed successfully, "
+                "but the AI explanation is unavailable. "
+                "Review the verified results table."
+            )
+
+        plan_data = plan.model_dump(mode="json")
 
     try:
         if conversation is None:
@@ -126,8 +137,14 @@ def ask_ai(
                 role="assistant",
                 content=explanation,
                 model=model,
-                plan_json=json.dumps(plan_data),
-                analysis_json=json.dumps(analysis, allow_nan=False),
+                plan_json=(
+                    json.dumps(plan_data)
+                    if plan_data is not None else None
+                ),
+                analysis_json=(
+                    json.dumps(analysis, allow_nan=False)
+                    if analysis is not None else None
+                ),
             ),
         ])
 

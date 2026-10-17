@@ -8,8 +8,8 @@ export interface AskResponse {
   conversation_id: string;
   model: string;
   answer: string;
-  plan: AnalysisRequest;
-  analysis: AnalysisResult;
+  plan: AnalysisRequest | null;
+  analysis: AnalysisResult | null;
 }
 
 export interface ChatEntry {
