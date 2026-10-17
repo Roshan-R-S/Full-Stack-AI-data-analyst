@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import DatasetsPage from "./pages/DatasetsPage";
 import AnalystPage from "./pages/AnalystPage";
@@ -17,6 +17,8 @@ function systemTheme(): Theme {
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>(systemTheme);
+  const pageHeadingRef = useRef<HTMLHeadingElement>(null);
+  const previousViewRef = useRef<View>("datasets");
   const [view, setView] = useState<View>("datasets");
   const [apiStatus, setApiStatus] =
     useState<ApiStatus>("checking");
@@ -29,6 +31,13 @@ export default function App() {
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+
+    if (previousViewRef.current !== view) {
+      previousViewRef.current = view;
+      pageHeadingRef.current?.focus({
+        preventScroll: true,
+      });
+    }
 
     window.scrollTo({
       top: 0,
@@ -89,6 +98,9 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">
+        SKIP TO MAIN CONTENT
+      </a>
       <header className="topbar">
         <div className="brand">
           <span className="signal-dot" />
@@ -96,7 +108,7 @@ export default function App() {
         </div>
 
         <div className="topbar-actions">
-          <span className={`api-status ${apiStatus}`}>
+          <span className={`api-status ${apiStatus}`} aria-live="polite">
             [{apiStatus.toUpperCase()}]
           </span>
 
@@ -106,7 +118,9 @@ export default function App() {
             onClick={() =>
               setTheme(theme === "dark" ? "light" : "dark")
             }
-            aria-label="Toggle color theme"
+            aria-label={`Switch to ${
+              theme === "dark" ? "light" : "dark"
+            } theme`}
           >
             [ {theme === "dark" ? "LIGHT" : "DARK"} ]
           </button>
@@ -132,11 +146,11 @@ export default function App() {
         ))}
       </nav>
 
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <div key={view} className="view-transition">
         <section className="workspace-hero">
           <p className="eyebrow">{page.number}</p>
-          <h1>{page.title}</h1>
+          <h1 ref={pageHeadingRef} tabIndex={-1}>{page.title}</h1>
           <p>{page.description}</p>
         </section>
 
