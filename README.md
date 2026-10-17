@@ -1,279 +1,325 @@
-# FULL STACK AI DATA ANALYST
+<div align="center">
 
-**Turn CSV data into verified insights using AI, Python, and interactive visualizations.**
+# DATA / ANALYST
 
-A full-stack AI-powered data analytics application built with **React, TypeScript, FastAPI, Pandas, SQLite, and Google Gemini**.
+**FROM CSV TO VERIFIED INSIGHT.**
 
-Upload a dataset, explore its structure, perform calculations, ask natural-language questions, and visualize the results through an interactive dashboard.
+A local-first AI data analyst built with **React, TypeScript, FastAPI, Pandas, SQLite, and Google Gemini**.
 
-The interface follows a **Nothing-inspired design language** with minimal layouts, monochrome surfaces, typography-led navigation, and subtle accents.
+Upload a CSV. Explore the data. Run reproducible calculations. Ask questions in natural language. Visualize and export the results.
+
+**`01 / DATASETS` · `02 / ANALYSIS` · `03 / AI CHAT` · `04 / DASHBOARD`**
+
+[Getting Started](#getting-started) · [Features](#features) · [Architecture](#architecture) · [API Reference](#api-reference)
+
+</div>
 
 ---
 
+## Overview
+
+DATA / ANALYST is a **single-user, local-development application** that combines deterministic analytics with an AI-assisted interface. Its design takes inspiration from Nothing's typography-led, high-contrast aesthetic, using restrained accents, compact controls, and smooth navigation.
+
+**The central principle:** Gemini interprets supported questions and explains results; **Pandas performs the calculations**. AI-generated analytical plans are validated before execution, and returned figures come from the uploaded dataset—not from model-generated arithmetic.
+
 ## Features
 
-### 01 / Dataset Management
+| Workspace | Capabilities |
+| --- | --- |
+| **01 / Datasets** | Drag-and-drop CSV upload, dataset list and deletion, paginated record preview, column profiling, missing/unique values, duplicate-row counts |
+| **02 / Analysis** | Grouping, filtering, sorting, six aggregation functions, saved analysis configurations, reproducible result tables, CSV/PDF/Excel exports |
+| **03 / AI Chat** | Natural-language analytical questions, local dataset-overview responses, verified Pandas evidence, applicable visualizations, persistent conversation history |
+| **04 / Dashboard** | Dataset KPIs, configurable grouped metrics and filters, multiple synchronized charts, editable Excel chart downloads |
 
-- Upload CSV datasets through a drag-and-drop interface.
-- View uploaded datasets and metadata.
-- Preview records and inspect column information.
-- Explore missing values, unique values, data types, and duplicate rows.
-- Delete datasets when they are no longer needed.
-- Basic dataset size and structure validation.
+### Verified analytics
 
-### 02 / Pandas Analytics Engine
+- Aggregations: `sum`, `mean`, `min`, `max`, `count`, `nunique`.
+- Filters: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`.
+- Grouped and ungrouped operations, sorting, and bounded result limits.
+- Validated column references and metric types before executing a plan.
+- Saved analyses can be named, loaded, updated, rerun, renamed, and deleted.
+- Repeated reads benefit from a bounded, invalidation-aware in-memory CSV cache.
 
-- Execute deterministic, server-side calculations.
-- Supported aggregations: `sum`, `mean`, `min`, `max`, `count`, `nunique`.
-- Filter data using comparison, membership, and text operators.
-- Group records by selected columns.
-- Sort, limit, and inspect analytical results.
-- Validate analysis requests before execution.
+### AI analyst
 
-### 03 / Gemini AI Analyst
+For supported quantitative questions, the flow is:
 
-Ask questions about uploaded datasets in natural language.
+1. The application sends the question and relevant dataset schema to Gemini.
+2. Gemini proposes a structured analysis plan (not executable Python or SQL).
+3. The backend validates the plan against the real dataset.
+4. Pandas computes the verified result.
+5. Gemini explains a bounded set of the computed results.
+6. The UI displays the explanation, evidence table, and an applicable chart.
 
-Examples:
+Common dataset-overview prompts, such as **“What is this data about?”** and **“Describe this dataset”**, are answered locally using dataset profiling without a Gemini call. Other questions depend on the planner's supported analytical operations and the configured API quota.
 
-- Which credit card type has the highest average annual income?
-- What is the average credit score by card type?
-- Which region generates the most revenue?
-- What is the total sales amount for each product?
+AI Chat conversations and messages are saved in local SQLite storage. Users can reopen, rename, or delete conversations.
 
-**How it works:**
+### Interactive visualizations
 
-1. Gemini receives the question and relevant dataset schema.
-2. Gemini generates a structured analytical plan.
-3. The backend validates the plan.
-4. Pandas executes the calculation.
-5. Gemini explains the verified result.
-6. The interface presents the explanation, evidence table, and applicable visualization.
+Charts use **Recharts** and are lazy-loaded to reduce initial frontend loading costs.
 
-**Important:** Gemini assists with planning and explanation. Pandas performs the numerical calculations.
+| Chart | Best suited to |
+| --- | --- |
+| Vertical bar | Comparing numerical results across categories |
+| Horizontal bar | Comparing categories with longer labels |
+| Line | Ordered or time-based changes |
+| Area | Ordered trends with visual emphasis on magnitude |
+| Pie | Shares of a complete, additive total |
+| Donut | Compact presentation of those same proportions |
 
-AI Chat also includes Enter-to-send, Ctrl+Enter or Shift+Enter for new lines, and automatic conversation scrolling.
+The application only offers chart modes appropriate for the returned data. In particular, Pie/Donut charts require **complete, nonnegative `sum` or `count` results**; averages should not be interpreted as parts of a total. Large Pie/Donut views combine smaller categories into an **Other** slice while preserving their combined value.
 
-### 04 / Interactive Visualizations
+The UI includes distinct slice colors, tooltips, smooth module transitions, scrollable dataset panels, and reduced-motion support.
 
-- Bar charts for grouped metric comparisons.
-- Donut charts for suitable additive proportions.
-- Line charts for supported ordered data.
-- Hover tooltips and chart-type controls.
-- Visualizations backed by actual Pandas results.
-- Lazy-loaded Recharts components for improved initial loading.
+### Export formats
 
-### 05 / Data Intelligence Dashboard
+| Format | Contents | Available in |
+| --- | --- | --- |
+| **CSV** | Verified analytical result rows | Analysis |
+| **PDF** | Formatted analysis report with results and supporting context | Analysis |
+| **Excel (`.xlsx`)** | Native, editable Excel chart plus a **Verified Data** worksheet | Analysis and Dashboard |
 
-A configurable analytics workspace featuring:
-
-- Source records, columns, missing cells, and duplicate-row KPIs.
-- Matched-record counts after filtering.
-- Dataset and grouping selection.
-- Primary and secondary metrics.
-- Aggregation controls.
-- Conditional filters.
-- Multiple synchronized analytical visualizations.
-- Verified results tables.
-
-The dashboard adapts to the selected dataset rather than relying on hardcoded example values.
+Excel exports reflect the **selected chart type**. All exports use backend-computed results and respect analytical result limits; they do not necessarily contain every row in the original CSV. Excel output is generated with **XlsxWriter**, and the backend includes regression coverage for workbook structure and formula-injection handling.
 
 ---
 
 ## Technology Stack
 
 | Layer | Technology |
-|---|---|
-| Frontend | React, TypeScript, Vite |
-| Visualizations | Recharts |
-| Styling | CSS, Nothing-inspired design |
-| Backend | Python, FastAPI |
-| Data Processing | Pandas |
-| AI Integration | Google Gemini API |
-| Database | SQLite |
-| Validation | Pydantic |
-| HTTP Client | Fetch API |
-| Python Environment | uv |
-| Testing | pytest |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite 8 |
+| Charts | Recharts |
+| Styling | Tailwind CSS 4, custom CSS, Nothing-inspired visual language |
+| Backend | Python 3.12, FastAPI |
+| Data processing | Pandas, NumPy |
+| AI integration | Google Gemini via `google-genai` |
+| Persistence | SQLite, SQLAlchemy |
+| Reports and spreadsheets | ReportLab, XlsxWriter |
+| Python dependency management | `uv` |
+| Quality checks | pytest, Vitest, Ruff, TypeScript |
 
----
+## Architecture
 
-## Project Structure
+```text
+                       React + TypeScript + Vite
+                       /         |           \
+                Datasets     Analysis       AI Chat
+                    \           |             /
+                     Dashboard + Recharts UI
+                                |
+                         FastAPI /api/v1
+                                |
+           +--------------------+------------------+
+           |                    |                  |
+    CSV storage/cache     Validated Pandas    Gemini planner
+           |               analytics           + explainer
+           |                    |                  |
+           +--------------------+------------------+
+                                |
+                          SQLite metadata,
+                        conversations, saved plans
+                                |
+                          CSV / PDF / XLSX
+```
 
-**Backend**
+- **Local dataset storage:** `data/uploads/`.
+- **Application database:** `data/app.db`.
+- **Sample CSV:** `data/samples/sales_sample.csv`.
+- **CSV cache:** in memory, limited to two datasets and 64 MiB of cached DataFrame memory.
 
-- `backend/app/api/v1/` — REST API endpoints
-- `backend/app/analytics/` — Pandas execution and plan validation
-- `backend/app/ai/` — Gemini client, planning, and explanations
-- `backend/app/schemas/` — Request and response validation
-- `backend/tests/` — Automated backend tests
-
-**Frontend**
-
-- `frontend/src/pages/` — Datasets, Analysis, AI Chat, and Dashboard pages
-- `frontend/src/components/` — Reusable UI components
-- `frontend/src/components/chat/` — Chat interface
-- `frontend/src/components/charts/` — Interactive charts
-- `frontend/src/services/` — Backend API communication
-- `frontend/src/types/` — Shared TypeScript types
-- `frontend/src/index.css` — Application styling
+The full uploaded CSV is not automatically sent to Gemini during a supported analytical question. **The question, dataset column names/types, row count, and up to ten verified result rows may be sent to the Gemini API** during planning and explanation. Do not use sensitive data without considering that external API transfer.
 
 ---
 
 ## Getting Started
 
+The commands below target **Windows PowerShell**, from the repository root. This project currently runs **locally**; it is not configured as a publicly hosted multi-user service.
+
 ### Prerequisites
 
-Install the following:
-
-- Python 3.12 or a compatible version supported by the project
-- Node.js and npm
-- uv (Python package manager)
 - Git
-- A Google Gemini API key
+- Python **3.12** (managed locally through `uv` if desired)
+- `uv` ([installation instructions](https://docs.astral.sh/uv/getting-started/installation/))
+- Node.js and npm (a current compatible LTS version)
+- A Google Gemini API key **for AI-powered analytical questions**; local dataset profiling and manual Pandas analysis do not require an AI key
 
-### 1. Clone the Repository
+### 1. Clone
 
-`git clone https://github.com/Roshan-R-S/Full-Stack-AI-data-analyst.git`
+```powershell
+git clone https://github.com/Roshan-R-S/Full-Stack-AI-data-analyst.git
+Set-Location .\Full-Stack-AI-data-analyst
+```
 
-`cd Full-Stack-AI-data-analyst`
+### 2. Install backend dependencies
 
-### 2. Install Backend Dependencies
+```powershell
+uv python install 3.12
+uv sync --project .\backend --python 3.12
+```
 
-From the project root:
+### 3. Configure Gemini (optional for non-AI workflows)
 
-`uv sync --project ./backend`
+```powershell
+Copy-Item .\backend\.env.example .\backend\.env
+notepad .\backend\.env
+```
 
-### 3. Configure Environment Variables
+Set the values you intend to use:
 
-Create a file named `backend/.env` and configure:
+```dotenv
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=your_supported_gemini_model
+```
 
-- `GEMINI_API_KEY` — Your Gemini API key
-- `GEMINI_MODEL` — The supported Gemini model configured for the project
+The app reads `backend/.env` for Gemini configuration. `GEMINI_MODEL` is optional; if omitted, the backend uses its configured default. **Never commit a real API key or `.env` file.**
 
-Never commit actual credentials or `.env` files.
+### 4. Start the backend
 
-### 4. Start the Backend
+In the first PowerShell terminal, at the repository root:
 
-From the project root:
+```powershell
+uv run --project .\backend uvicorn app.main:app --app-dir .\backend --reload --host 127.0.0.1 --port 8000
+```
 
-`uv run --project ./backend uvicorn app.main:app --app-dir backend --reload --port 8000`
+- Health check: <http://127.0.0.1:8000/api/v1/health>
+- FastAPI docs: <http://127.0.0.1:8000/docs>
 
-Backend URL: `http://localhost:8000`
+### 5. Start the frontend
 
-API documentation: `http://localhost:8000/docs`
+Open a **second PowerShell terminal** at the repository root:
 
-### 5. Install and Start the Frontend
+```powershell
+npm.cmd --prefix .\frontend install
+npm.cmd --prefix .\frontend run dev
+```
 
-Open a second terminal from the project root:
+Open **<http://localhost:5173/>** in a browser.
 
-`npm install --prefix ./frontend`
+### 6. Try the sample dataset
 
-`npm run dev --prefix ./frontend`
-
-Frontend URL: `http://localhost:5173`
-
-### 6. Run Tests
-
-Backend:
-
-`uv run --project ./backend pytest -q`
-
-Frontend production build:
-
-`npm run build --prefix ./frontend`
-
-The backend currently has **18 passing tests**, as verified during development.
+1. In **Datasets**, upload `data/samples/sales_sample.csv`.
+2. Inspect its schema and paginated preview.
+3. In **Analysis**, group by `Product` and calculate `SUM` of `Revenue`.
+4. In **Dashboard**, explore the grouped results using the available chart types.
+5. Export an applicable chart as an editable Excel workbook.
+6. If Gemini is configured, try asking: **“What is the total revenue by product?”**
 
 ---
 
-## API Overview
+## Testing and Quality Checks
+
+Run from the repository root:
+
+```powershell
+# Backend lint
+uv run --project .\backend ruff check .\backend\app .\backend\tests
+
+# Backend regression suite
+uv run --project .\backend pytest -q
+
+# Frontend regression suite
+npm.cmd --prefix .\frontend run test
+
+# TypeScript check and production build
+npm.cmd --prefix .\frontend run build
+
+# Check whitespace and local modifications
+git diff --check
+git status -sb
+```
+
+**Last verified (October 2026):** 75 backend tests passed, 18 frontend tests passed, Ruff checks passed, and the Vite production build succeeded. Browser checks also covered navigation, visualizations, and editable Excel downloads. These figures describe that verification run, not a live CI badge.
+
+## API Reference
+
+Interactive endpoint documentation is available at `/docs`. All routes below are relative to the local backend and prefixed with `/api/v1`.
 
 | Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/api/v1/health` | Backend health check |
-| GET | `/api/v1/datasets` | List datasets |
-| POST | `/api/v1/datasets` | Upload CSV |
-| GET | `/api/v1/datasets/{id}` | Dataset details |
-| GET | `/api/v1/datasets/{id}/preview` | Preview records |
-| GET | `/api/v1/datasets/{id}/profile` | Dataset profile |
-| DELETE | `/api/v1/datasets/{id}` | Delete dataset |
-| POST | `/api/v1/analysis` | Execute Pandas analysis |
-| POST | `/api/v1/chat/ask` | Ask the AI analyst |
+| --- | --- | --- |
+| `GET` | `/health` | Backend health check |
+| `GET`, `POST` | `/datasets` | List or upload CSV datasets |
+| `GET`, `DELETE` | `/datasets/{id}` | Dataset details or deletion |
+| `GET` | `/datasets/{id}/preview` | Paginated data preview |
+| `GET` | `/datasets/{id}/profile` | Column and dataset profiling |
+| `POST` | `/analysis` | Execute validated Pandas analysis |
+| `POST` | `/chat/ask` | AI-supported analysis or local dataset overview |
+| `GET` | `/conversations` | List stored conversations |
+| `GET`, `PATCH`, `DELETE` | `/conversations/{id}` | View, rename, or delete a conversation |
+| `GET`, `POST` | `/saved-analyses` | List or create saved analytical plans |
+| `GET`, `PATCH`, `DELETE` | `/saved-analyses/{id}` | View, rename, or delete a saved plan |
+| `PUT` | `/saved-analyses/{id}/plan` | Update a saved analysis plan |
+| `POST` | `/saved-analyses/{id}/run` | Rerun a saved analysis |
+| `POST` | `/exports/analysis/csv` | Export computed results as CSV |
+| `POST` | `/exports/analysis/pdf` | Export a formatted PDF report |
+| `POST` | `/exports/analysis/xlsx` | Export an editable Excel chart and verified data |
 
-Interactive API documentation is available through FastAPI's `/docs` endpoint when the backend is running.
+The XLSX endpoint accepts an analytical `plan`, the selected `chart_type`, and a `metric_alias`. See `/docs` for request schemas.
 
----
+## Project Structure
 
-## Architecture
+```text
+Full-Stack-AI-data-analyst/
+├── backend/
+│   ├── app/
+│   │   ├── ai/               # Gemini client, planner, explanations
+│   │   ├── analytics/        # CSV parsing, validation, Pandas execution
+│   │   ├── api/v1/           # REST endpoints
+│   │   ├── core/             # Local security and request limits
+│   │   ├── db/               # SQLite connection and session
+│   │   ├── models/           # Persistence models
+│   │   ├── schemas/          # Request/response schemas
+│   │   └── services/         # Caching, profiling, PDF/XLSX generation
+│   ├── tests/                # Unit and integration tests
+│   ├── .env.example
+│   └── pyproject.toml
+├── frontend/
+│   └── src/
+│       ├── components/      # Dataset, chat, and chart components
+│       ├── pages/           # Four main workspaces
+│       ├── services/        # Backend API clients
+│       └── types/           # Shared TypeScript types
+├── data/
+│   ├── samples/             # Example datasets
+│   ├── uploads/             # Local uploaded CSVs (runtime)
+│   └── app.db               # Local SQLite database (runtime)
+└── README.md
+```
 
-**Dataset workflow**
+## Scope, Limits, and Security
 
-CSV Upload → FastAPI Validation → Local Dataset Storage → Pandas Profiling → SQLite Metadata → React Interface
+This is a **local-first, single-user MVP**, not a production-hardened service.
 
-**AI analytical workflow**
-
-User Question → Gemini Structured Plan → Plan Validation → Pandas Execution → Gemini Explanation → Verified Results + Recharts
-
-**Dashboard workflow**
-
-Dataset Selection → Metrics and Filters → Analytics API → Pandas Aggregation → KPIs + Charts + Results Table
-
-The complete CSV does not need to be sent to Gemini for the implemented analytical workflow. Dataset schemas, questions, and computed evidence are used for AI planning and explanations.
-
----
-
-## Current Limitations
-
-This project is currently a **functional local-development MVP**, not a production-hardened hosted service.
-
-- CSV is the primary supported file format.
-- Data processing runs on the backend using Pandas.
-- AI functionality requires valid Gemini API configuration and available API quota.
-- AI questions support the analytical operations implemented by the planner.
-- Conversations are not yet persistently stored across browser refreshes.
-- Authentication, user isolation, and production security controls are not implemented.
-- Avoid hosting the current backend publicly without additional safeguards.
-
----
+- CSV input is limited to **10 MiB**, **100,000 rows**, and **100 columns**. Input must be parseable UTF-8 CSV.
+- Analytical outputs have bounded result limits; chart and export results may therefore be partial.
+- AI questions are limited to the structured operations implemented by the planner. Not every natural-language request is supported.
+- Persistent conversations, saved analyses, and uploaded files live on the local machine; back them up as needed.
+- The backend includes localhost host/origin restrictions, request-size limits, and rate limiting. **These are not authentication or user isolation.**
+- Do not expose this application publicly or process sensitive data without additional security controls and review.
+- Google Gemini API requests require a configured key and available quota. The AI features are not fully offline.
 
 ## Roadmap
 
-- [x] Project foundation and frontend/backend integration
-- [x] CSV upload and dataset profiling
-- [x] Pandas analytics engine
-- [x] Gemini-powered natural-language analysis
-- [x] Verified AI answers and evidence tables
-- [x] Interactive data visualizations
-- [x] Configurable analytics dashboard
-- [x] Lazy-loaded chart components
-- [ ] Persistent AI conversation history
-- [ ] Saved analytical configurations
-- [ ] CSV and PDF report exports
-- [ ] Expanded automated testing
-- [ ] Performance optimization and security hardening
-- [ ] Production deployment
-
----
-
-## Privacy and Security
-
-- Keep Gemini API keys in local environment variables.
-- Do not commit `.env` files or private datasets.
-- Uploaded data is processed by the local FastAPI backend.
-- AI integration uses selected metadata and analytical evidence rather than uploading the entire CSV as part of each question.
-- Add authentication and stronger deployment protections before processing sensitive information on a public server.
+- [x] Local FastAPI + React application foundation
+- [x] CSV upload, validation, pagination, and dataset profiling
+- [x] Verified Pandas analytics and natural-language AI planning
+- [x] Persistent chat conversations and saved analyses
+- [x] Dashboard KPIs and six selectable chart types
+- [x] Colorful Pie/Donut charts with grouped smaller categories
+- [x] CSV, PDF, and editable Excel chart exports
+- [x] Bounded CSV caching and regression tests
+- [x] Smooth navigation and reduced-motion support
+- [ ] Add real application screenshots and a short walkthrough/demo
+- [ ] Expand frontend interaction and accessibility tests
+- [ ] Further performance, security, and usability audits
+- [ ] Evaluate deployment architecture and controls before public hosting
 
 ---
 
 ## Author
 
-**Roshan RS**
+**Roshan RS** · [GitHub](https://github.com/Roshan-R-S)
 
-GitHub: [Roshan-R-S](https://github.com/Roshan-R-S)
+[Repository](https://github.com/Roshan-R-S/Full-Stack-AI-data-analyst)
 
-Repository: [Full-Stack-AI-data-analyst](https://github.com/Roshan-R-S/Full-Stack-AI-data-analyst)
-
----
-
-**Built to make data analysis more accessible, interactive, and understandable.**
+**Built for clarity, reproducibility, and more accessible data analysis.**
