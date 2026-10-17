@@ -25,6 +25,7 @@ from app.db.session import get_db
 from app.models.conversation import Conversation
 from app.models.dataset import Dataset
 from app.models.saved_analysis import SavedAnalysis
+from app.services.csv_cache import invalidate_cached_csv, load_cached_csv
 from app.services.profiling_service import profile_dataframe
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def read_stored_dataset(dataset_id: str) -> pd.DataFrame:
     path = UPLOAD_DIR / f"{dataset_id}.csv"
 
     try:
-        return load_csv(path.read_bytes())
+        return load_cached_csv(path)
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=500,
@@ -331,4 +332,5 @@ def delete_dataset(
                 exc_info=True,
             )
 
+    invalidate_cached_csv(path)
     return Response(status_code=204)
