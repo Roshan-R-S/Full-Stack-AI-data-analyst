@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Full Stack AI Data Analyst",
-    version="0.2.0",
+    version="0.1.0",
     description="AI-powered data analytics API",
     lifespan=lifespan,
 )
