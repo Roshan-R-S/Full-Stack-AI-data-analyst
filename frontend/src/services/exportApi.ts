@@ -77,3 +77,36 @@ export async function downloadChartExcel(
 
   window.setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+
+export interface DashboardChartSelection {
+  chart_type: ChartMode;
+  metric_alias: string;
+}
+
+export async function downloadDashboardExcel(
+  plan: AnalysisRequest,
+  charts: DashboardChartSelection[],
+): Promise<void> {
+  const response = await apiFetch(
+    "/exports/analysis/xlsx/dashboard",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan, charts }),
+    },
+  );
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download =
+    `dashboard-${plan.dataset_id.slice(0, 8)}.xlsx`;
+
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+}

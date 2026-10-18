@@ -13,6 +13,7 @@ import {
 import { runAnalysis } from "../services/analysisApi";
 import { downloadChartExcel } from "../services/exportApi";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
+import DashboardMultiExport from "../components/dashboard/DashboardMultiExport";
 
 import type {
   Dataset,
@@ -655,6 +656,19 @@ export default function DashboardPage() {
                 : "[COMPLETE RESULT]"}
             </span>
           </div>
+
+          {resultPlan?.dataset_id === datasetId && (
+            <DashboardMultiExport
+              plan={resultPlan}
+              result={result}
+              group={applied.group}
+              metrics={cards.map((card) => ({
+                alias: card.key,
+                label: card.heading,
+                aggregation: card.aggregation,
+              }))}
+            />
+          )}
 
           <div className="dashboard-chart-grid">
             {cards.map((card) => (

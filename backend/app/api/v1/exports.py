@@ -14,6 +14,7 @@ from app.api.v1.datasets import (
 from app.db.session import get_db
 from app.schemas.analysis import AnalysisRequest
 from app.services.chart_excel import build_chart_workbook
+from app.services.multi_chart_excel import build_multi_chart_workbook
 from app.services.pdf_report import build_pdf_report
 
 
@@ -25,6 +26,16 @@ class ExcelChartRequest(BaseModel):
         "bar", "horizontal", "line", "area", "pie", "donut"
     ]
     metric_alias: str = Field(min_length=1, max_length=100)
+
+class MultiExcelChartRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan: AnalysisRequest
+    chart_types: list[Literal[
+        "bar", "horizontal", "line", "area", "pie", "donut"
+    ]] = Field(min_length=2, max_length=6)
+    metric_alias: str = Field(min_length=1, max_length=100)
+
 
 router = APIRouter(prefix="/exports", tags=["Exports"])
 
@@ -159,6 +170,106 @@ def export_analysis_xlsx(
             "Content-Disposition": (
                 f'attachment; filename="chart-{dataset_id[:8]}.xlsx"'
             ),
+            "X-Export-Truncated":
+                str(analysis["truncated"]).lower(),
+        },
+    )
+
+
+@router.post("/analysis/xlsx/multi")
+def export_analysis_multi_xlsx(
+    request: MultiExcelChartRequest,
+    db: Session = Depends(get_db),
+):
+    dataset_id = str(request.plan.dataset_id)
+    get_dataset_or_404(dataset_id, db)
+
+    dataframe = read_stored_dataset(dataset_id)
+
+    try:
+        analysis = execute_analysis(dataframe, request.plan)
+        content = build_multi_chart_workbook(
+            analysis,
+            request.plan,
+            request.chart_types,
+            request.metric_alias,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    return Response(
+        content=content,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="charts-{dataset_id[:8]}.xlsx"'
+            ),
+            "X-Export-Truncated":
+                str(analysis["truncated"]).lower(),
+        },
+    )
+
+class DashboardChartSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chart_type: Literal[
+        "bar", "horizontal", "line", "area", "pie", "donut"
+    ]
+    metric_alias: str = Field(min_length=1, max_length=100)
+
+
+class DashboardExcelRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan: AnalysisRequest
+    charts: list[DashboardChartSelection] = Field(
+        min_length=2, max_length=6
+    )
+
+
+@router.post("/analysis/xlsx/dashboard")
+def export_dashboard_xlsx(
+    request: DashboardExcelRequest,
+    db: Session = Depends(get_db),
+):
+    dataset_id = str(request.plan.dataset_id)
+    get_dataset_or_404(dataset_id, db)
+
+    dataframe = read_stored_dataset(dataset_id)
+
+    try:
+        analysis = execute_analysis(dataframe, request.plan)
+        content = build_multi_chart_workbook(
+            analysis,
+            request.plan,
+            [],
+            "",
+            selections=[
+                (item.chart_type, item.metric_alias)
+                for item in request.charts
+            ],
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+    return Response(
+        content=content,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="dashboard-{dataset_id[:8]}.xlsx"',
             "X-Export-Truncated":
                 str(analysis["truncated"]).lower(),
         },
