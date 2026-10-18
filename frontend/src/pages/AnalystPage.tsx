@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useActiveDataset } from "../services/activeDataset";
 import VerifiedChart from "../components/charts/LazyVerifiedChart";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import type { FormEvent } from "react";
@@ -56,7 +57,16 @@ function formatValue(value: unknown): string {
 
 export default function AnalystPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [datasetId, setDatasetId] = useState("");
+  const {
+    activeDatasetId,
+    setActiveDatasetId,
+    reconcileDatasets,
+  } = useActiveDataset();
+
+  const datasetId =
+    datasets.some((item) => item.id === activeDatasetId)
+      ? activeDatasetId
+      : "";
   const [profile, setProfile] = useState<DatasetProfile | null>(null);
 
   const [metricColumn, setMetricColumn] = useState("");
@@ -92,7 +102,7 @@ export default function AnalystPage() {
       .then((items) => {
         if (!active) return;
         setDatasets(items);
-        setDatasetId(items[0]?.id ?? "");
+        reconcileDatasets(items);
       })
       .catch((err: unknown) => {
         if (active) {
@@ -605,7 +615,7 @@ export default function AnalystPage() {
             <span>01 / DATASET</span>
             <select
               value={datasetId}
-              onChange={(event) => setDatasetId(event.target.value)}
+              onChange={(event) => setActiveDatasetId(event.target.value)}
               disabled={loading || running || savedBusy}
             >
               {datasets.length === 0 && (

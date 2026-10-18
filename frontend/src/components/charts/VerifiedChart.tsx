@@ -185,6 +185,11 @@ export default function VerifiedChart({
     (mode === "line" || mode === "area") ? orderedPoints : points
   ).slice(0, 24);
 
+  const displayedPoints =
+    mode === "pie" || mode === "donut"
+      ? piePoints
+      : visiblePoints;
+
 
   async function handleExcelExport() {
     if (!onExportExcel || exporting) return;
@@ -212,6 +217,10 @@ export default function VerifiedChart({
     color: "var(--text-primary)",
     fontFamily: "Space Mono, monospace",
     fontSize: 12,
+    maxWidth: 260,
+    whiteSpace: "normal" as const,
+    overflowWrap: "anywhere" as const,
+    lineHeight: 1.5,
   };
 
   const tooltip = (
@@ -282,9 +291,7 @@ export default function VerifiedChart({
 
       <p id={descriptionId} className="visually-hidden">
         {mode} visualization showing{" "}
-        {mode === "pie" || mode === "donut"
-          ? piePoints.length
-          : visiblePoints.length}
+        {displayedPoints.length}
         {" "}categories of {metricColumn} grouped by {groupColumn}.
         {aggregation && ` Aggregation: ${aggregation}.`}
         {result.truncated &&
@@ -543,10 +550,52 @@ export default function VerifiedChart({
         )}
       </div>
 
+      <details className="verified-chart-data">
+        <summary>
+          VIEW CHART DATA / {displayedPoints.length}{" "}
+          {mode === "pie" || mode === "donut"
+            ? "SLICES"
+            : "ROWS"}
+        </summary>
+
+        <div className="table-scroll">
+          <table className="data-table">
+            <caption className="visually-hidden">
+              {mode} chart values: {metricColumn} by {groupColumn}
+            </caption>
+
+            <thead>
+              <tr>
+                <th scope="col">{groupColumn}</th>
+                <th scope="col">{metricColumn}</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {displayedPoints.map((point, index) => (
+                <tr key={`${point.label}-${index}`}>
+                  <th scope="row">{point.label}</th>
+                  <td className="numeric-cell">
+                    {formatValue(point.value)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+
       <p className="verified-chart-note">
-        [PANDAS / VERIFIED] {visiblePoints.length} DISPLAYED
-        {result.result_count > visiblePoints.length &&
+        [PANDAS / VERIFIED] {displayedPoints.length}{" "}
+        {mode === "pie" || mode === "donut"
+          ? "SLICES"
+          : "DISPLAYED"}
+        {mode !== "pie" && mode !== "donut" &&
+          result.result_count > displayedPoints.length &&
           ` OF ${result.result_count} GROUPS`}
+        {(mode === "pie" || mode === "donut") &&
+          piePoints.length < points.length &&
+          ` / ${points.length - 11} SMALLER CATEGORIES GROUPED AS OTHER`}
         {result.truncated &&
           " â€” PARTIAL RESULT. NOT A FULL COMPARISON."}
       </p>

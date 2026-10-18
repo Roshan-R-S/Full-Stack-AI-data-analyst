@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useActiveDataset } from "../services/activeDataset";
 import type { FormEvent } from "react";
 
 import LazyVerifiedChart from
@@ -118,7 +119,16 @@ function getChartResult(
 
 export default function DashboardPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [datasetId, setDatasetId] = useState("");
+  const {
+    activeDatasetId,
+    setActiveDatasetId,
+    reconcileDatasets,
+  } = useActiveDataset();
+
+  const datasetId =
+    datasets.some((item) => item.id === activeDatasetId)
+      ? activeDatasetId
+      : "";
   const [profile, setProfile] =
     useState<DatasetProfile | null>(null);
 
@@ -152,7 +162,7 @@ export default function DashboardPage() {
       .then((items) => {
         if (!active) return;
         setDatasets(items);
-        setDatasetId(items[0]?.id ?? "");
+        reconcileDatasets(items);
       })
       .catch((err: unknown) => {
         if (active) setError(getError(err));
@@ -444,7 +454,7 @@ export default function DashboardPage() {
             <span>DATASET</span>
             <select
               value={datasetId}
-              onChange={(e) => setDatasetId(e.target.value)}
+              onChange={(e) => setActiveDatasetId(e.target.value)}
               disabled={running || loadingProfile}
             >
               {datasets.length === 0 && (

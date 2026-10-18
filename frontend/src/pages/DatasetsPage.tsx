@@ -3,6 +3,7 @@ import UploadZone from "../components/upload/UploadZone";
 import DatasetTable from "../components/datasets/DatasetTable";
 import ColumnInspector from "../components/datasets/ColumnInspector";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
+import { useActiveDataset } from "../services/activeDataset";
 
 import {
   listDatasets,
@@ -20,7 +21,16 @@ import type {
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const {
+    activeDatasetId,
+    setActiveDatasetId,
+    reconcileDatasets,
+  } = useActiveDataset();
+
+  const selectedId =
+    datasets.some((item) => item.id === activeDatasetId)
+      ? activeDatasetId
+      : null;
   const [preview, setPreview] = useState<DatasetPreview | null>(null);
   const [profile, setProfile] = useState<DatasetProfile | null>(null);
   const [page, setPage] = useState(1);
@@ -38,7 +48,7 @@ export default function DatasetsPage() {
       .then((items) => {
         if (!active) return;
         setDatasets(items);
-        setSelectedId(items[0]?.id ?? null);
+        reconcileDatasets(items);
       })
       .catch((err: unknown) => {
         if (active) {
@@ -119,7 +129,7 @@ export default function DatasetsPage() {
     try {
       const dataset = await uploadDataset(file);
       setDatasets((existing) => [dataset, ...existing]);
-      setSelectedId(dataset.id);
+      setActiveDatasetId(dataset.id);
       setPage(1);
       setStatus(`[IMPORTED] ${dataset.filename}`);
     } catch (err) {
@@ -131,7 +141,7 @@ export default function DatasetsPage() {
   }
 
   function selectDataset(id: string) {
-    setSelectedId(id);
+    setActiveDatasetId(id);
     setPage(1);
     setError("");
   }
@@ -154,7 +164,7 @@ export default function DatasetsPage() {
       );
 
       setDatasets(remaining);
-      setSelectedId(remaining[0]?.id ?? null);
+      setActiveDatasetId(remaining[0]?.id ?? "");
       setPage(1);
       setStatus("[DATASET DELETED]");
       setError("");

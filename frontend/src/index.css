@@ -2229,3 +2229,50 @@ html {
   background: #ffffff;
   color: #111111;
 }
+
+
+/* PHASE 8B.4 CHART DATA DISCLOSURE */
+
+.verified-chart-data {
+  margin-top: 20px;
+  border-top: 1px solid var(--border-visible);
+}
+
+.verified-chart-data > summary {
+  min-height: 44px;
+  display: list-item;
+  padding: 14px 8px;
+  color: var(--text-display);
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.verified-chart-data > summary:hover {
+  color: var(--accent);
+}
+
+.verified-chart-data > summary:focus-visible {
+  outline: 2px solid var(--text-display);
+  outline-offset: 3px;
+}
+
+.verified-chart-data .table-scroll {
+  max-height: 340px;
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.verified-chart-data .data-table th,
+.verified-chart-data .data-table td {
+  overflow-wrap: anywhere;
+}
+
+.verified-chart-data .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}

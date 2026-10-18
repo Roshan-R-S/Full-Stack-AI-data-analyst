@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useActiveDataset } from "../services/activeDataset";
 
 import ChatWindow from "../components/chat/ChatWindow";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
@@ -116,7 +117,16 @@ function restoreMessages(
 
 export default function ChatPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [datasetId, setDatasetId] = useState("");
+  const {
+    activeDatasetId,
+    setActiveDatasetId,
+    reconcileDatasets,
+  } = useActiveDataset();
+
+  const datasetId =
+    datasets.some((item) => item.id === activeDatasetId)
+      ? activeDatasetId
+      : "";
   const [profile, setProfile] =
     useState<DatasetProfile | null>(null);
 
@@ -142,7 +152,7 @@ export default function ChatPage() {
       .then((items) => {
         if (!mounted) return;
         setDatasets(items);
-        setDatasetId(items[0]?.id ?? "");
+        reconcileDatasets(items);
       })
       .catch((err: unknown) => {
         if (mounted) setError(errorMessage(err));
@@ -241,7 +251,7 @@ export default function ChatPage() {
     if (busy || loadingHistory) return;
 
     setError("");
-    setDatasetId(id);
+    setActiveDatasetId(id);
   }
 
   function newChat() {
