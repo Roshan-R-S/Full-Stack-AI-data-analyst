@@ -4,6 +4,8 @@
 
 **FROM CSV TO VERIFIED INSIGHT.**
 
+[![CI](https://github.com/Roshan-R-S/Full-Stack-AI-data-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/Roshan-R-S/Full-Stack-AI-data-analyst/actions/workflows/ci.yml)
+
 A local-first AI data analyst built with **React, TypeScript, FastAPI, Pandas, SQLite, and Google Gemini**.
 
 Upload a CSV. Explore the data. Run reproducible calculations. Ask questions in natural language. Visualize and export the results.
@@ -29,7 +31,7 @@ DATA / ANALYST is a **single-user, local-development application** that combines
 | **01 / Datasets** | Drag-and-drop CSV upload, dataset list and deletion, paginated record preview, column profiling, missing/unique values, duplicate-row counts |
 | **02 / Analysis** | Grouping, filtering, sorting, six aggregation functions, saved analysis configurations, reproducible result tables, CSV/PDF/Excel exports |
 | **03 / AI Chat** | Natural-language analytical questions, local dataset-overview responses, verified Pandas evidence, applicable visualizations, persistent conversation history |
-| **04 / Dashboard** | Dataset KPIs, configurable grouped metrics and filters, multiple synchronized charts, editable Excel chart downloads |
+| **04 / Dashboard** | Compact KPI cards, grouped analytics, six chart types, individual Excel downloads, and multi-chart Excel exports |
 
 ### Verified analytics
 
@@ -74,13 +76,45 @@ The UI includes distinct slice colors, tooltips, smooth module transitions, scro
 
 ### Export formats
 
-| Format | Contents | Available in |
+| Format | Contents | Workspace |
 | --- | --- | --- |
-| **CSV** | Verified analytical result rows | Analysis |
-| **PDF** | Formatted analysis report with results and supporting context | Analysis |
-| **Excel (`.xlsx`)** | Native, editable Excel chart plus a **Verified Data** worksheet | Analysis and Dashboard |
+| CSV | Verified analysis results | Analysis |
+| PDF | Formatted analysis report | Analysis |
+| Single-chart Excel | One editable Excel chart | Analysis and Dashboard |
+| Multi-chart Excel | 2-6 editable charts in one workbook | Dashboard and API |
 
-Excel exports reflect the **selected chart type**. All exports use backend-computed results and respect analytical result limits; they do not necessarily contain every row in the original CSV. Excel output is generated with **XlsxWriter**, and the backend includes regression coverage for workbook structure and formula-injection handling.
+### Multi-chart Excel export
+
+The Dashboard can export 2-6 native, editable charts into one Excel workbook.
+
+1. Upload or select a dataset.
+2. Open Dashboard and configure your analysis.
+3. Click UPDATE DASHBOARD.
+4. Find EXPORT MULTIPLE CHARTS.
+5. Choose a metric and chart type for each chart.
+6. Use ADD CHART to include additional charts.
+7. Click EXPORT CHARTS TO EXCEL.
+
+The workbook contains three worksheets:
+
+| Worksheet | Contents |
+| --- | --- |
+| Charts | All selected Excel charts on one sheet |
+| Chart Data | Source values for the charts |
+| Verified Data | Pandas-calculated analysis results |
+
+Supported types: Bar, Horizontal, Line, Area, Pie and Donut.
+
+Pie and Donut require complete, nonnegative SUM or COUNT results
+with at least two groups and a positive total. Line and Area
+require an ordered numeric or date-like grouping axis.
+
+The selector disables ineligible options and prevents duplicate
+metric/chart combinations. Excel export includes safeguards
+against formula injection.
+
+Exports use backend-computed results and respect analysis
+row limits. They do not necessarily contain the entire CSV.
 
 ---
 
@@ -198,38 +232,54 @@ Open **<http://localhost:5173/>** in a browser.
 
 ### 6. Try the sample dataset
 
-1. In **Datasets**, upload `data/samples/sales_sample.csv`.
-2. Inspect its schema and paginated preview.
-3. In **Analysis**, group by `Product` and calculate `SUM` of `Revenue`.
-4. In **Dashboard**, explore the grouped results using the available chart types.
-5. Export an applicable chart as an editable Excel workbook.
-6. If Gemini is configured, try asking: **“What is the total revenue by product?”**
+1. Open Datasets and upload `data/samples/sales_sample.csv`.
+2. Inspect the column profile and data preview.
+3. In Analysis, group by Product and calculate SUM of Revenue.
+4. Open Dashboard and explore the visualizations.
+5. Under EXPORT MULTIPLE CHARTS, select two or more charts.
+6. Download the Excel workbook.
+7. Inspect Charts, Chart Data, and Verified Data in Excel.
+8. Try Pie or Donut with an eligible COUNT metric.
+9. If Gemini is configured, ask a supported data question.
 
 ---
 
 ## Testing and Quality Checks
 
-Run from the repository root:
+Run from the project root:
 
 ```powershell
-# Backend lint
 uv run --project .\backend ruff check .\backend\app .\backend\tests
-
-# Backend regression suite
 uv run --project .\backend pytest -q
-
-# Frontend regression suite
 npm.cmd --prefix .\frontend run test
-
-# TypeScript check and production build
 npm.cmd --prefix .\frontend run build
-
-# Check whitespace and local modifications
-git diff --check
-git status -sb
 ```
 
-**Last verified (October 2026):** 75 backend tests passed, 18 frontend tests passed, Ruff checks passed, and the Vite production build succeeded. Browser checks also covered navigation, visualizations, and editable Excel downloads. These figures describe that verification run, not a live CI badge.
+### Latest verified results
+
+18 October 2026:
+
+| Check | Result |
+| --- | --- |
+| Backend pytest | 83 passed |
+| Frontend Vitest | 40 passed |
+| Ruff lint | Passed |
+| TypeScript and Vite | Passed |
+| GitHub Actions CI | Working |
+
+One non-blocking Starlette/httpx deprecation warning
+was reported by the backend tests.
+
+### GitHub Actions
+
+Automated CI is configured in `.github/workflows/ci.yml`.
+
+The backend job runs Python 3.12, Ruff and pytest.
+The frontend job runs Node.js 22, Vitest and Vite build.
+
+CI runs on pushes to main, pull requests, and manual dispatch.
+
+[View GitHub Actions](https://github.com/Roshan-R-S/Full-Stack-AI-data-analyst/actions)
 
 ## API Reference
 
@@ -252,9 +302,11 @@ Interactive endpoint documentation is available at `/docs`. All routes below are
 | `POST` | `/saved-analyses/{id}/run` | Rerun a saved analysis |
 | `POST` | `/exports/analysis/csv` | Export computed results as CSV |
 | `POST` | `/exports/analysis/pdf` | Export a formatted PDF report |
-| `POST` | `/exports/analysis/xlsx` | Export an editable Excel chart and verified data |
+| `POST` | `/exports/analysis/xlsx` | Single editable Excel chart |
+| `POST` | `/exports/analysis/xlsx/multi` | 2-6 chart types for one metric |
+| `POST` | `/exports/analysis/xlsx/dashboard` | 2-6 metric/chart combinations |
 
-The XLSX endpoint accepts an analytical `plan`, the selected `chart_type`, and a `metric_alias`. See `/docs` for request schemas.
+The single-chart endpoint accepts `plan`, `chart_type` and `metric_alias`. The multi-chart endpoint accepts `plan`, `chart_types` and `metric_alias`. The Dashboard endpoint accepts `plan` and a `charts` array containing `chart_type` and `metric_alias`. See `/docs` for request schemas.
 
 ## Project Structure
 
@@ -307,6 +359,9 @@ This is a **local-first, single-user MVP**, not a production-hardened service.
 - [x] Dashboard KPIs and six selectable chart types
 - [x] Colorful Pie/Donut charts with grouped smaller categories
 - [x] CSV, PDF, and editable Excel chart exports
+- [x] Multi-chart Excel export
+- [x] Compact Dashboard buttons and KPI cards
+- [x] GitHub Actions CI for backend and frontend
 - [x] Bounded CSV caching and regression tests
 - [x] Smooth navigation and reduced-motion support
 - [ ] Add real application screenshots and a short walkthrough/demo
