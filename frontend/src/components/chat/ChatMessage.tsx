@@ -49,6 +49,7 @@ export default function ChatMessage({ message }: Props) {
           </div>
 
           <VerifiedChart
+            showDataTable={false}
             result={analysis}
             groupBy={message.plan?.group_by}
             aggregation={message.plan?.metrics[0]?.aggregation}
@@ -59,7 +60,13 @@ export default function ChatMessage({ message }: Props) {
               <thead>
                 <tr>
                   {analysis.columns.map((column) => (
-                    <th key={column} scope="col">
+                    <th
+  key={column}
+  scope="col"
+  className={analysis.rows.some(
+    (row) => typeof row[column] === "number",
+  ) ? "numeric-cell" : undefined}
+>
                       {column}
                     </th>
                   ))}

@@ -14,6 +14,7 @@ interface Props {
   result: AnalysisResult;
   groupBy?: string[];
   aggregation?: Aggregation;
+  showDataTable?: boolean;
   onExportExcel?: (mode: ChartMode) => Promise<void>;
 }
 

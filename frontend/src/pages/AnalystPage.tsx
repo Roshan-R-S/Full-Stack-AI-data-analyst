@@ -956,6 +956,7 @@ export default function AnalystPage() {
             </div>
 
             <VerifiedChart
+              showDataTable={false}
               result={result}
               groupBy={lastPlan?.group_by}
               aggregation={lastPlan?.metrics[0]?.aggregation}
@@ -973,7 +974,13 @@ export default function AnalystPage() {
                 <thead>
                   <tr>
                     {result.columns.map((column) => (
-                      <th key={column} scope="col">
+                      <th
+  key={column}
+  scope="col"
+  className={result.rows.some(
+    (row) => typeof row[column] === "number",
+  ) ? "numeric-cell" : undefined}
+>
                         {column === (lastPlan?.metrics[0]?.alias ?? "result")
                           ? `${(lastPlan?.metrics[0]?.aggregation ?? aggregation).toUpperCase()} RESULT`
                           : column}

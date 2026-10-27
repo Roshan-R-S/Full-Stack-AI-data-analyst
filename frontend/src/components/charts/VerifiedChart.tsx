@@ -28,6 +28,7 @@ interface Props {
   result: AnalysisResult;
   groupBy?: string[];
   aggregation?: Aggregation;
+  showDataTable?: boolean;
   onExportExcel?: (mode: ChartMode) => Promise<void>;
 }
 
@@ -85,6 +86,7 @@ export default function VerifiedChart({
   groupBy,
   aggregation,
   onExportExcel,
+  showDataTable = true,
 }: Props) {
   const descriptionId = useId();
 
@@ -550,7 +552,8 @@ export default function VerifiedChart({
         )}
       </div>
 
-      <details className="verified-chart-data">
+      {showDataTable && (
+        <details className="verified-chart-data">
         <summary>
           VIEW CHART DATA / {displayedPoints.length}{" "}
           {mode === "pie" || mode === "donut"
@@ -567,7 +570,7 @@ export default function VerifiedChart({
             <thead>
               <tr>
                 <th scope="col">{groupColumn}</th>
-                <th scope="col">{metricColumn}</th>
+                <th scope="col" className="numeric-cell">{metricColumn}</th>
               </tr>
             </thead>
 
@@ -583,7 +586,8 @@ export default function VerifiedChart({
             </tbody>
           </table>
         </div>
-      </details>
+        </details>
+      )}
 
       <p className="verified-chart-note">
         [PANDAS / VERIFIED] {displayedPoints.length}{" "}

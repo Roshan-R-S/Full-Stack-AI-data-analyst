@@ -678,6 +678,7 @@ export default function DashboardPage() {
                 </p>
 
                 <LazyVerifiedChart
+                  showDataTable={false}
                   result={getChartResult(
                     result,
                     applied.group,
@@ -710,7 +711,13 @@ export default function DashboardPage() {
                 <thead>
                   <tr>
                     {result.columns.map((column) => (
-                      <th scope="col" key={column}>
+                      <th
+  key={column}
+  scope="col"
+  className={result.rows.some(
+    (row) => typeof row[column] === "number",
+  ) ? "numeric-cell" : undefined}
+>
                         {column === "primary_value"
                           ? `${applied.aggregation.toUpperCase()} / ${applied.primary}`
                           : column === "group_count"

@@ -72,6 +72,28 @@ describe("Verified chart accessibility", () => {
     expect(text).toContain("Aggregation: sum.");
   });
 
+  it("aligns numeric headers", () => {
+    const html = render();
+
+    expect(html).toContain(
+      'class="numeric-cell">total_revenue</th>',
+    );
+  });
+
+  it("can omit redundant chart tables", () => {
+    const html = renderToStaticMarkup(
+      <VerifiedChart
+        result={result}
+        groupBy={["Region"]}
+        aggregation="sum"
+        showDataTable={false}
+      />,
+    );
+
+    expect(html).not.toContain("verified-chart-data");
+    expect(html).toContain("verified-chart-note");
+  });
+
   it("announces partial analytical results", () => {
     const html = render({
       ...result,
